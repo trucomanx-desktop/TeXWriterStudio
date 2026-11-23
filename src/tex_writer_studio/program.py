@@ -50,7 +50,6 @@ CONFIG=configure.load_config(CONFIG_PATH)
 # ---------------------------------------
 
 
-APP_NAME = "LaTeX Studio"
 DEFAULTS = {
     "font_family": "DejaVu Sans Mono", "font_size": 12,
     "editor_bg": "#1e1e1e", "editor_fg": "#d4d4d4", "gutter_bg": "#252526",
@@ -680,7 +679,8 @@ class MainWindow(QMainWindow):
 
 def main():
     app=QApplication(sys.argv); 
-    app.setApplicationName(APP_NAME); 
+    app.setApplicationName(about.__package__) 
+
     w=MainWindow(); 
     w.show(); 
     sys.exit(app.exec_())
