@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import glob
 import os
 import re
 import shlex
@@ -48,6 +49,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QInputDialog,
     QMessageBox,
     QPlainTextEdit,
     QLineEdit,
@@ -82,24 +84,8 @@ CONFIG_PATH = os.path.join(
 )
 
 DEFAULT_CONTENT = {
-    "toolbar_configure": "Configure",
-    "toolbar_configure_tooltip": "Open the configure Json file of program GUI",
-    "toolbar_about": "About",
-    "toolbar_about_tooltip": "About the program",
-    "toolbar_coffee": "Coffee",
-    "toolbar_coffee_tooltip": "Buy me a coffee (TrucomanX)",
-    "window_width": 1024,
+        "window_width": 1024,
     "window_height": 800,
-}
-
-configure.verify_default_config(CONFIG_PATH, default_content=DEFAULT_CONTENT)
-
-CONFIG = configure.load_config(CONFIG_PATH)
-
-# ---------------------------------------
-
-
-DEFAULTS = {
     "font_family": "DejaVu Sans Mono",
     "font_size": 12,
     "editor_bg": "#1e1e1e",
@@ -113,7 +99,231 @@ DEFAULTS = {
     "auto_save": True,
     "theme": "Dark",
     "pdf_zoom": 1.0,
+    "bibliography_backend": "none",
+    "ui": {
+        "toolbar_configure": "Configure",
+        "toolbar_configure_tooltip": "Open the program GUI configuration file",
+        "toolbar_about": "About",
+        "toolbar_about_tooltip": "About the program",
+        "toolbar_coffee": "Coffee",
+        "toolbar_coffee_tooltip": "Buy me a coffee (TrucomanX)",
+        "about_ok": "OK",
+        "window_title": about.__program_name__,
+        "editor_tooltip": "LaTeX source editor. Right-click for editing and SyncTeX actions.",
+        "editor_go_to_pdf": "Go to this position in PDF",
+        "cut": "Cut",
+        "copy": "Copy",
+        "paste": "Paste",
+        "pdf_tooltip": "PDF preview. Use Ctrl + mouse wheel to change zoom.",
+        "pdf_window_title": "PDF Preview — SyncTeX",
+        "pdf_zoom_hint": "Ctrl + mouse wheel: zoom",
+        "pdf_zoom_status": "{pages} page(s) — Ctrl + mouse wheel to zoom",
+        "pdf_unavailable_title": "PDF unavailable",
+        "pdf_unavailable_message": "Could not open the PDF. Install PyMuPDF.\n\n{error}",
+        "terminal_tooltip": "Run shell commands in a persistent Bash session.",
+        "terminal_prompt": "$",
+        "terminal_clear": "Clear",
+        "terminal_clear_tooltip": "Clear terminal output",
+        "terminal_restart": "Restart shell",
+        "terminal_restart_tooltip": "Restart the Bash session",
+        "terminal_input_placeholder": "Enter a shell command…",
+        "terminal_input_tooltip": "Type a command and press Enter. The shell keeps its current directory and environment.",
+        "terminal_start_error": "Could not start /bin/bash.\n",
+        "terminal_command_echo": "$ {command}\n",
+        "terminal_shell_exit": "\n[Shell exited with code {code}]\n",
+        "terminal_change_folder": "Change to current file folder",
+        "terminal_pwd": "Show current folder (pwd)",
+        "terminal_clear_output": "Clear terminal output",
+        "settings_title": "Editor Settings",
+        "settings_font": "Editor font",
+        "settings_font_size": "Font size (Ctrl + mouse wheel)",
+        "settings_theme": "Syntax theme",
+        "settings_command": "Compile command",
+        "settings_backend": "Bibliography tool",
+        "settings_passes": "LaTeX passes",
+        "settings_autosave": "Save automatically before compiling",
+        "settings_color_editor_bg": "Editor background",
+        "settings_color_editor_fg": "Editor text",
+        "settings_color_gutter_bg": "Line number background",
+        "settings_color_gutter_fg": "Line numbers",
+        "settings_color_selection_bg": "Selection",
+        "settings_choose_color": "Choose…",
+        "terminal_title": "Terminal",
+        "toolbar_title": "Main",
+        "toolbar_new": "New",
+        "toolbar_from_template": "From Template",
+        "toolbar_from_template_tooltip": "Create a new document from a LaTeX template",
+        "dialog_template_title": "Choose a template",
+        "dialog_template_prompt": "Select a template to create a new document:",
+        "dialog_template_empty_title": "No templates found",
+        "dialog_template_empty_message": "No .tex templates were found in the application data folder.",
+        "toolbar_open": "Open",
+        "toolbar_save": "Save",
+        "toolbar_make_main": "Make Main",
+        "toolbar_compile": "Compile PDF",
+        "toolbar_view_pdf": "View PDF",
+        "toolbar_settings": "Settings",
+        "shortcut_cut": "Ctrl+X",
+        "shortcut_copy": "Ctrl+C",
+        "shortcut_paste": "Ctrl+V",
+        "action_cut": "Cut",
+        "action_copy": "Copy",
+        "action_paste": "Paste",
+        "window_title_template": "{document}{modified} — Main: {main} — TeX Writer Studio",
+        "dialog_unsaved_template": "Save changes to {filename}?",
+        "dialog_open_title": "Open LaTeX or bibliography file",
+        "dialog_open_filter": "TeX and bibliography (*.tex *.bib);;LaTeX (*.tex);;Bibliography (*.bib);;All files (*)",
+        "status_opened_template": "{path}",
+        "status_missing_file_template": "Monitored file was removed or is unavailable: {path}",
+        "dialog_source_changed_template": "{filename} was modified outside the editor. Would you like to reload it?\n\nReloading discards unsaved local changes.",
+        "dialog_pdf_changed_template": "{filename} was modified outside the editor. Would you like to reload it in the preview?",
+        "status_saved_template": "Saved: {path}",
+        "status_main_file_template": "Main file: {path}",
+        "status_synctex_pdf_to_source_template": "SyncTeX: page {page} → {source}, line {line}",
+        "status_cursor_template": "Line {line}, column {column}",
+        "status_synctex_source_to_pdf_template": "SyncTeX: {source}, line {line}, column {column} → page {page}",
+        "about_window_title": "About",
+        "about_package_template": "Package: {value}",
+        "about_program_template": "Program: {value}",
+        "about_version_template": "Version: {value}",
+        "about_author_template": "Author: {value}",
+        "about_email_template": "Email: <a href=\"mailto:{value}\">{value}</a>",
+        "about_source_template": "Source: <a href=\"{value}\">{value}</a>",
+        "about_documentation_template": "Documentation: <a href=\"{value}\">{value}</a>",
+        "about_funding_template": "Funding: <a href=\"{value}\">{value}</a>",
+        "about_bugs_template": "Bugs: <a href=\"{value}\">{value}</a>",
+        "dialog_yes": "Yes",
+        "dialog_no": "No",
+        "dialog_save": "Save",
+        "dialog_discard": "Discard",
+        "dialog_cancel": "Cancel",
+        "settings_save": "Save",
+        "settings_cancel": "Cancel",
+        "backend_none": "None",
+        "backend_bibtex": "BibTeX",
+        "backend_biber": "Biber",
+        "theme_names": ["Dark", "Light", "Solarized"],
+        "main_toolbar_title": "Main",
+        "tab_files": "Files",
+        "tab_build_output": "Build Output",
+        "menu_file": "File",
+        "menu_edit": "Edit",
+        "action_new": "New",
+        "action_open": "Open",
+        "action_save": "Save",
+        "action_make_main": "Make Main",
+        "action_compile": "Compile PDF",
+        "action_view_pdf": "View PDF",
+        "action_settings": "Settings",
+        "shortcut_new": "Ctrl+N",
+        "shortcut_open": "Ctrl+O",
+        "shortcut_save": "Ctrl+S",
+        "shortcut_make_main": "Ctrl+Shift+M",
+        "shortcut_compile": "F5",
+        "shortcut_view_pdf": "Ctrl+Shift+P",
+        "shortcut_settings": "Ctrl+,",
+        "tooltip_new": "Create a new document",
+        "tooltip_open": "Open a document",
+        "tooltip_save": "Save the current document",
+        "tooltip_make_main": "Set the current tab as the main LaTeX file",
+        "tooltip_compile": "Compile the main LaTeX file to PDF",
+        "tooltip_view_pdf": "Show the PDF preview",
+        "tooltip_settings": "Configure editor and compilation settings",
+        "menu_cut": "Cut",
+        "menu_copy": "Copy",
+        "menu_paste": "Paste",
+        "untitled_file": "Untitled.tex",
+        "main_file_missing": "no main file selected",
+        "title_document": "{document}{modified} — Main: {main} — TeX Writer Studio",
+        "status_current_file": "File: {path} | Main: {main}",
+        "status_no_file": "Untitled",
+        "dialog_unsaved_title": "Unsaved changes",
+        "dialog_unsaved_message": "Save changes to {filename}?",
+        "dialog_open_file": "Open LaTeX or bibliography file",
+        "filter_open_file": "TeX and bibliography (*.tex *.bib);;LaTeX (*.tex);;Bibliography (*.bib);;All files (*)",
+        "dialog_open_error_title": "Could not open file",
+        "dialog_save_file": "Save file",
+        "filter_save_file": "TeX and bibliography (*.tex *.bib);;LaTeX (*.tex);;Bibliography (*.bib)",
+        "status_file_opened": "{path}",
+        "status_monitored_missing": "Monitored file was removed or is unavailable: {path}",
+        "dialog_source_changed_title": "Source file changed",
+        "dialog_source_changed_message": "{filename} was modified outside the editor. Would you like to reload it?\n\nReloading discards unsaved local changes.",
+        "status_file_reloaded": "Reloaded: {path}",
+        "dialog_reload_error_title": "Reload failed",
+        "dialog_pdf_changed_title": "PDF changed",
+        "dialog_pdf_changed_message": "{filename} was modified outside the editor. Would you like to reload it in the preview?",
+        "dialog_pdf_reload_error_title": "PDF reload failed",
+        "status_file_saved": "Saved: {path}",
+        "dialog_save_error_title": "Could not save file",
+        "dialog_main_file_title": "Main file",
+        "dialog_select_main_file": "Select a saved .tex tab to make it the main file.",
+        "status_main_file": "Main file: {path}",
+        "status_settings_applied": "Settings applied",
+        "dialog_compile_main_file": "Open a .tex file and use 'Make Main File' before compiling.",
+        "log_main_file": "Main file: {path}\n$ {command}\n",
+        "status_compiling": "Compiling…",
+        "log_compile_finished": "\nCompilation finished (exit code {code}).",
+        "status_compile_success": "PDF compiled successfully",
+        "status_compile_errors": "Compilation finished with errors; see the Build Output tab",
+        "status_compile_before_sync": "Compile the document first to generate the PDF and SyncTeX data",
+        "status_synctex_pdf_to_source": "SyncTeX: page {page} → {source}, line {line}",
+        "status_synctex_missing_source": "SyncTeX could not find source here. Make sure the PDF was compiled with -synctex=1.",
+        "status_cursor_position": "Line {line}, column {column}",
+        "status_sync_before_compile": "Compile with SyncTeX before navigating to the PDF",
+        "status_synctex_source_to_pdf": "SyncTeX: {source}, line {line}, column {column} → page {page}",
+        "status_synctex_missing_position": "SyncTeX could not find a PDF position for this source location",
+        "status_synctex_unavailable": "Could not run synctex. Install SyncTeX and compile with -synctex=1.",
+        "dialog_button_yes": "Yes",
+        "dialog_button_no": "No",
+        "dialog_button_save": "Save",
+        "dialog_button_discard": "Discard",
+        "dialog_button_cancel": "Cancel",
+        "dialog_save_title": "Save file",
+        "dialog_save_filter": "TeX and bibliography (*.tex *.bib);;LaTeX (*.tex);;Bibliography (*.bib)",
+        "log_compile_finished_template": "\nCompilation finished (exit code {code}).",
+        "status_reloaded_template": "Reloaded: {path}",
+        "about_description": about.__description__,
+        "status_untitled": "Untitled",
+        "status_current_file_template": "File: {path} | Main: {main}",
+        "log_main_file_template": "Main file: {path}\n$ {command}\n",
+        "tab_main_marker": "★ ",
+        "tab_modified_marker": " *",
+    },
 }
+
+configure.verify_default_config(CONFIG_PATH, default_content=DEFAULT_CONTENT)
+
+CONFIG = configure.load_config(CONFIG_PATH)
+
+
+def ui_text(key, **values):
+    """Return a translatable/configurable GUI string from the user config."""
+    return CONFIG["ui"][key].format(**values)
+
+
+def ask_question(parent, title, message, buttons, default_button):
+    """Show a question dialog using configurable labels for standard buttons."""
+    dialog = QMessageBox(parent)
+    dialog.setIcon(QMessageBox.Question)
+    dialog.setWindowTitle(title)
+    dialog.setText(message)
+    dialog.setStandardButtons(buttons)
+    button_labels = {
+        QMessageBox.Yes: "dialog_button_yes",
+        QMessageBox.No: "dialog_button_no",
+        QMessageBox.Save: "dialog_button_save",
+        QMessageBox.Discard: "dialog_button_discard",
+        QMessageBox.Cancel: "dialog_button_cancel",
+    }
+    for button, key in button_labels.items():
+        if dialog.button(button):
+            dialog.button(button).setText(ui_text(key))
+    dialog.setDefaultButton(dialog.button(default_button))
+    return dialog.exec_()
+
+# ---------------------------------------
+
+
 THEMES = {
     "Dark": {
         "command": "#569cd6",
@@ -186,26 +396,24 @@ class CodeEditor(QPlainTextEdit):
         super().__init__()
         self.settings = settings
         self.highlighter = LatexHighlighter(
-            self.document(), settings.value("theme", DEFAULTS["theme"])
+            self.document(), settings.value("theme", CONFIG["theme"])
         )
-        self.setToolTip(
-            "LaTeX source editor. Right-click for editing and SyncTeX actions."
-        )
+        self.setToolTip(ui_text("editor_tooltip"))
         self.setTabStopDistance(QFontMetrics(self.font()).horizontalAdvance(" ") * 4)
         self.cursorPositionChanged.connect(self.report_cursor)
         self.apply_appearance()
 
     def apply_appearance(self):
-        family = self.settings.value("font_family", DEFAULTS["font_family"])
-        size = int(self.settings.value("font_size", DEFAULTS["font_size"]))
+        family = self.settings.value("font_family", CONFIG["font_family"])
+        size = int(self.settings.value("font_size", CONFIG["font_size"]))
         self.setFont(QFont(family, size))
-        bg = self.settings.value("editor_bg", DEFAULTS["editor_bg"])
-        fg = self.settings.value("editor_fg", DEFAULTS["editor_fg"])
-        sel = self.settings.value("selection_bg", DEFAULTS["selection_bg"])
+        bg = self.settings.value("editor_bg", CONFIG["editor_bg"])
+        fg = self.settings.value("editor_fg", CONFIG["editor_fg"])
+        sel = self.settings.value("selection_bg", CONFIG["selection_bg"])
         self.setStyleSheet(
             f"QPlainTextEdit {{background:{bg}; color:{fg}; selection-background-color:{sel}; border:0;}}"
         )
-        self.highlighter.set_theme(self.settings.value("theme", DEFAULTS["theme"]))
+        self.highlighter.set_theme(self.settings.value("theme", CONFIG["theme"]))
         self.highlighter.rehighlight()
 
     def wheelEvent(self, e):
@@ -272,7 +480,7 @@ class EditorWithGutter(CodeEditor):
         p = QPainter(self.gutter)
         p.fillRect(
             event.rect(),
-            QColor(self.settings.value("gutter_bg", DEFAULTS["gutter_bg"])),
+            QColor(self.settings.value("gutter_bg", CONFIG["gutter_bg"])),
         )
         block = self.firstVisibleBlock()
         n = block.blockNumber()
@@ -280,7 +488,7 @@ class EditorWithGutter(CodeEditor):
             self.blockBoundingGeometry(block).translated(self.contentOffset()).top()
         )
         bottom = top + int(self.blockBoundingRect(block).height())
-        p.setPen(QColor(self.settings.value("gutter_fg", DEFAULTS["gutter_fg"])))
+        p.setPen(QColor(self.settings.value("gutter_fg", CONFIG["gutter_fg"])))
         while block.isValid() and top <= event.rect().bottom():
             if block.isVisible() and bottom >= event.rect().top():
                 p.drawText(
@@ -313,19 +521,19 @@ class EditorWithGutter(CodeEditor):
         menu = QMenu(self)
         self.add_clipboard_actions(menu)
         menu.addSeparator()
-        jump = menu.addAction("Go to this position in PDF")
+        jump = menu.addAction(ui_text("editor_go_to_pdf"))
         jump.triggered.connect(self.emit_right_click_position)
         return menu
 
     def add_clipboard_actions(self, menu):
         selected = self.textCursor().hasSelection()
-        cut = menu.addAction("Cut")
+        cut = menu.addAction(ui_text("cut"))
         cut.setEnabled(selected)
         cut.triggered.connect(self.cut)
-        copy = menu.addAction("Copy")
+        copy = menu.addAction(ui_text("copy"))
         copy.setEnabled(selected)
         copy.triggered.connect(self.copy)
-        paste = menu.addAction("Paste")
+        paste = menu.addAction(ui_text("paste"))
         paste.setEnabled(bool(QApplication.clipboard().text()))
         paste.triggered.connect(self.paste)
 
@@ -362,7 +570,7 @@ class PdfCanvas(QWidget):
         self.zoom = 1.0
         self.marker = None
         self.setStyleSheet("background:#555;")
-        self.setToolTip("PDF preview. Use Ctrl + mouse wheel to change zoom.")
+        self.setToolTip(ui_text("pdf_tooltip"))
 
     def set_pages(self, pages, page_sizes):
         self.pages = pages
@@ -433,7 +641,7 @@ class PdfWindow(QMainWindow):
         self.render_timer = QTimer(self)
         self.render_timer.setSingleShot(True)
         self.render_timer.timeout.connect(self.render_pages)
-        self.setWindowTitle("PDF Preview — SyncTeX")
+        self.setWindowTitle(ui_text("pdf_window_title"))
         self.canvas = PdfCanvas()
         self.canvas.zoomChanged.connect(self.zoom_changed)
         self.scroll = QScrollArea()
@@ -441,8 +649,8 @@ class PdfWindow(QMainWindow):
         self.scroll.setWidgetResizable(False)
         self.setCentralWidget(self.scroll)
         self.setMinimumSize(600, 700)
-        self.canvas.zoom = float(settings.value("pdf_zoom", 1.0))
-        self.statusBar().showMessage("Ctrl + mouse wheel: zoom")
+        self.canvas.zoom = float(settings.value("pdf_zoom", CONFIG["pdf_zoom"]))
+        self.statusBar().showMessage(ui_text("pdf_zoom_hint"))
 
     def load_pdf(self, path):
         try:
@@ -453,14 +661,14 @@ class PdfWindow(QMainWindow):
             self.document = fitz.open(path)
             self.pdf_path = str(Path(path).resolve())
             self.statusBar().showMessage(
-                f"{len(self.document)} page(s) — Ctrl + mouse wheel to zoom"
+                ui_text("pdf_zoom_status", pages=len(self.document))
             )
             self.render_pages()
         except Exception as ex:
             QMessageBox.warning(
                 self,
-                "PDF unavailable",
-                f"Could not open the PDF. Install PyMuPDF.\n\n{ex}",
+                ui_text("pdf_unavailable_title"),
+                ui_text("pdf_unavailable_message", error=ex),
             )
 
     def render_pages(self):
@@ -556,28 +764,28 @@ class TerminalWidget(QWidget):
         self._fmt = QTextCharFormat()
         self._ansi_tail = ""
         self.setMinimumHeight(110)
-        self.setToolTip("Run shell commands in a persistent Bash session.")
+        self.setToolTip(ui_text("terminal_tooltip"))
         layout = QVBoxLayout(self)
         layout.setContentsMargins(5, 4, 5, 4)
         layout.setSpacing(4)
         header = QHBoxLayout()
-        title = QLabel("Terminal")
+        title = QLabel(ui_text("terminal_title"))
         title.setStyleSheet("font-weight:bold")
         header.addWidget(title)
         header.addStretch()
-        clear = QPushButton("Clear")
-        clear.setToolTip("Clear terminal output")
+        clear = QPushButton(ui_text("terminal_clear"))
+        clear.setToolTip(ui_text("terminal_clear_tooltip"))
         clear.clicked.connect(lambda: self.output.clear())
         header.addWidget(clear)
-        restart = QPushButton("Restart shell")
-        restart.setToolTip("Restart the Bash session")
+        restart = QPushButton(ui_text("terminal_restart"))
+        restart.setToolTip(ui_text("terminal_restart_tooltip"))
         restart.clicked.connect(self.start_shell)
         header.addWidget(restart)
         layout.addLayout(header)
         self.output = QPlainTextEdit()
         self.output.setReadOnly(True)
         self.output.setMaximumBlockCount(5000)
-        self.output.setFont(QFont("DejaVu Sans Mono", 10))
+        self.output.setFont(QFont(CONFIG["font_family"], CONFIG["font_size"]))
         self.output.setStyleSheet(
             "QPlainTextEdit {background:#111315;color:#d4d4d4;border:1px solid #444;}"
         )
@@ -587,14 +795,12 @@ class TerminalWidget(QWidget):
         )
         layout.addWidget(self.output, 1)
         row = QHBoxLayout()
-        prompt = QLabel("$")
+        prompt = QLabel(ui_text("terminal_prompt"))
         prompt.setStyleSheet("color:#23d18b;font-weight:bold")
         row.addWidget(prompt)
         self.input = QLineEdit()
-        self.input.setPlaceholderText("Enter a shell command…")
-        self.input.setToolTip(
-            "Type a command and press Enter. The shell keeps its current directory and environment."
-        )
+        self.input.setPlaceholderText(ui_text("terminal_input_placeholder"))
+        self.input.setToolTip(ui_text("terminal_input_tooltip"))
         self.input.returnPressed.connect(self.submit)
         self.input.setContextMenuPolicy(Qt.CustomContextMenu)
         self.input.customContextMenuRequested.connect(
@@ -622,7 +828,7 @@ class TerminalWidget(QWidget):
             self.input.setEnabled(True)
             self.input.setFocus()
         else:
-            self.append_text("Could not start /bin/bash.\n", QColor("#f14c4c"))
+            self.append_text(ui_text("terminal_start_error"), QColor("#f14c4c"))
 
     def submit(self):
         command = self.input.text()
@@ -634,7 +840,9 @@ class TerminalWidget(QWidget):
             return
         if not self.process or self.process.state() == QProcess.NotRunning:
             self.start_shell()
-        self.append_text(f"$ {command}\n", QColor("#29b8db"))
+        self.append_text(
+            ui_text("terminal_command_echo", command=command), QColor("#29b8db")
+        )
         self.process.write((command + "\n").encode("utf-8"))
 
     def read_output(self):
@@ -698,25 +906,25 @@ class TerminalWidget(QWidget):
     def build_context_menu(self, source_widget):
         """Build the popup menu in sections so terminal actions stay easy to extend."""
         menu = QMenu(self)
-        change_dir = menu.addAction("Change to current file folder")
+        change_dir = menu.addAction(ui_text("terminal_change_folder"))
         change_dir.setEnabled(bool(getattr(self.window(), "path", None)))
         change_dir.triggered.connect(self.change_to_current_file_folder)
-        pwd = menu.addAction("Show current folder (pwd)")
+        pwd = menu.addAction(ui_text("terminal_pwd"))
         pwd.triggered.connect(lambda: self.run_command("pwd"))
         menu.addSeparator()
         if source_widget is self.input:
             selected = bool(self.input.selectedText())
-            cut = menu.addAction("Cut")
+            cut = menu.addAction(ui_text("cut"))
             cut.setEnabled(selected)
             cut.triggered.connect(self.input.cut)
-            copy = menu.addAction("Copy")
+            copy = menu.addAction(ui_text("copy"))
             copy.setEnabled(selected)
             copy.triggered.connect(self.input.copy)
-            paste = menu.addAction("Paste")
+            paste = menu.addAction(ui_text("paste"))
             paste.setEnabled(bool(QApplication.clipboard().text()))
             paste.triggered.connect(self.input.paste)
             menu.addSeparator()
-        clear = menu.addAction("Clear terminal output")
+        clear = menu.addAction(ui_text("terminal_clear_output"))
         clear.triggered.connect(self.output.clear)
         return menu
 
@@ -733,73 +941,80 @@ class TerminalWidget(QWidget):
             )
 
     def shell_finished(self, code, status):
-        self.append_text(f"\n[Shell exited with code {code}]\n", QColor("#e5e510"))
+        self.append_text(
+            ui_text("terminal_shell_exit", code=code), QColor("#e5e510")
+        )
         self.input.setEnabled(False)
 
 
 class SettingsDialog(QDialog):
     def __init__(self, parent, settings):
         super().__init__(parent)
-        self.setWindowTitle("Editor Settings")
+        self.setWindowTitle(ui_text("settings_title"))
         self.s = settings
         form = QFormLayout(self)
         self.font = QFontComboBox()
         self.font.setCurrentFont(
-            QFont(settings.value("font_family", DEFAULTS["font_family"]))
+            QFont(settings.value("font_family", CONFIG["font_family"]))
         )
         self.size = QSpinBox()
         self.size.setRange(6, 48)
-        self.size.setValue(int(settings.value("font_size", 12)))
+        self.size.setValue(int(settings.value("font_size", CONFIG["font_size"])))
         self.theme = QComboBox()
-        self.theme.addItems(THEMES)
+        self.theme.addItems(CONFIG["ui"]["theme_names"])
         saved_theme = {
             "Escuro": "Dark",
             "Claro": "Light",
             "Solarizado": "Solarized",
-        }.get(settings.value("theme", "Dark"), settings.value("theme", "Dark"))
+        }.get(settings.value("theme", CONFIG["theme"]), settings.value("theme", CONFIG["theme"]))
         self.theme.setCurrentText(saved_theme)
         self.command = QTextEdit()
         self.command.setFixedHeight(70)
-        self.command.setPlainText(settings.value("command", DEFAULTS["command"]))
+        self.command.setPlainText(settings.value("command", CONFIG["command"]))
         self.passes = QSpinBox()
         self.passes.setRange(1, 5)
-        self.passes.setValue(int(settings.value("passes", 1)))
+        self.passes.setValue(int(settings.value("passes", CONFIG["passes"])))
         self.backend = QComboBox()
-        self.backend.addItem("None", "none")
-        self.backend.addItem("BibTeX", "bibtex")
-        self.backend.addItem("Biber", "biber")
-        current = self.backend.findData(settings.value("bibliography_backend", "none"))
-        self.backend.setCurrentIndex(max(0, current))
-        self.autosave = QCheckBox("Save automatically before compiling")
-        self.autosave.setChecked(
-            str(settings.value("auto_save", "true")).lower() not in ("false", "0")
+        self.backend.addItem(ui_text("backend_none"), "none")
+        self.backend.addItem(ui_text("backend_bibtex"), "bibtex")
+        self.backend.addItem(ui_text("backend_biber"), "biber")
+        current = self.backend.findData(
+            settings.value("bibliography_backend", CONFIG["bibliography_backend"])
         )
-        form.addRow("Editor font", self.font)
-        form.addRow("Font size (Ctrl + mouse wheel)", self.size)
-        form.addRow("Syntax theme", self.theme)
-        form.addRow("Compile command", self.command)
-        form.addRow("Bibliography tool", self.backend)
-        form.addRow("LaTeX passes", self.passes)
+        self.backend.setCurrentIndex(max(0, current))
+        self.autosave = QCheckBox(ui_text("settings_autosave"))
+        self.autosave.setChecked(
+            str(settings.value("auto_save", CONFIG["auto_save"])).lower()
+            not in ("false", "0")
+        )
+        form.addRow(ui_text("settings_font"), self.font)
+        form.addRow(ui_text("settings_font_size"), self.size)
+        form.addRow(ui_text("settings_theme"), self.theme)
+        form.addRow(ui_text("settings_command"), self.command)
+        form.addRow(ui_text("settings_backend"), self.backend)
+        form.addRow(ui_text("settings_passes"), self.passes)
         form.addRow("", self.autosave)
         self.color_buttons = {}
         for key, label in [
-            ("editor_bg", "Editor background"),
-            ("editor_fg", "Editor text"),
-            ("gutter_bg", "Line number background"),
-            ("gutter_fg", "Line numbers"),
-            ("selection_bg", "Selection"),
+            ("editor_bg", ui_text("settings_color_editor_bg")),
+            ("editor_fg", ui_text("settings_color_editor_fg")),
+            ("gutter_bg", ui_text("settings_color_gutter_bg")),
+            ("gutter_fg", ui_text("settings_color_gutter_fg")),
+            ("selection_bg", ui_text("settings_color_selection_bg")),
         ]:
-            b = QPushButtonColor(settings.value(key, DEFAULTS[key]))
+            b = QPushButtonColor(settings.value(key, CONFIG[key]))
             b.clicked.connect(lambda _, k=key, btn=b: self.pick_color(k, btn))
             self.color_buttons[key] = b
             form.addRow(label, b)
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Save).setText(ui_text("dialog_button_save"))
+        buttons.button(QDialogButtonBox.Cancel).setText(ui_text("dialog_button_cancel"))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         form.addRow(buttons)
 
     def pick_color(self, key, button):
-        c = QColorDialog.getColor(QColor(self.s.value(key, DEFAULTS[key])), self)
+        c = QColorDialog.getColor(QColor(self.s.value(key, CONFIG[key])), self)
         if c.isValid():
             self.s.setValue(key, c.name())
             button.setStyleSheet(f"background:{c.name()};padding:6px")
@@ -819,7 +1034,7 @@ from PyQt5.QtWidgets import QPushButton
 
 class QPushButtonColor(QPushButton):
     def __init__(self, color):
-        super().__init__("Choose…")
+        super().__init__(ui_text("settings_choose_color"))
         self.setStyleSheet(f"background:{color};padding:6px")
 
 
@@ -842,7 +1057,7 @@ class MainWindow(QMainWindow):
         self._external_timer.setSingleShot(True)
         self._external_timer.timeout.connect(self.check_external_changes)
 
-        self.setWindowTitle(about.__program_name__)
+        self.setWindowTitle(ui_text("window_title"))
         self.resize(CONFIG["window_width"], CONFIG["window_height"])
 
         ## Icon
@@ -857,8 +1072,8 @@ class MainWindow(QMainWindow):
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
         self.work_tabs = QTabWidget()
-        self.work_tabs.addTab(self.source_tabs, "Files")
-        self.work_tabs.addTab(self.log, "Build Output")
+        self.work_tabs.addTab(self.source_tabs, ui_text("tab_files"))
+        self.work_tabs.addTab(self.log, ui_text("tab_build_output"))
         self.terminal = TerminalWidget()
         split = QSplitter(Qt.Vertical)
         split.addWidget(self.work_tabs)
@@ -893,7 +1108,7 @@ class MainWindow(QMainWindow):
         a = QAction(qicon, text, self)
         if shortcut is not None:
             a.setShortcut(shortcut)
-            a.setToolTip(f"{tooltip} ({shortcut})")
+            a.setToolTip(tooltip)
         else:
             a.setToolTip(tooltip)
 
@@ -903,65 +1118,36 @@ class MainWindow(QMainWindow):
         return a
 
     def create_actions(self):
-
-        self.toolbar = self.addToolBar("Main")
+        self.toolbar = self.addToolBar(ui_text("toolbar_title"))
         self.toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        actions = [
+            ("new", self.new_file),
+            ("open", self.open_dialog),
+            ("save", self.save),
+            ("make_main", self.set_current_as_main),
+            ("compile", self.compile),
+            ("view_pdf", self.activate_pdf),
+            ("settings", self.configure),
+        ]
+        for name, slot in actions:
+            self.action(
+                self.toolbar,
+                QIcon.fromTheme("document-properties"),
+                ui_text(f"toolbar_{name}"),
+                ui_text(
+                    f"tooltip_{name}", shortcut=ui_text(f"shortcut_{name}")
+                ),
+                ui_text(f"shortcut_{name}"),
+                slot,
+            )
 
         self.action(
             self.toolbar,
-            QIcon.fromTheme("document-properties"),
-            "New",
-            "New",
-            "Ctrl+N",
-            self.new_file,
-        )
-        self.action(
-            self.toolbar,
-            QIcon.fromTheme("document-properties"),
-            "Open",
-            "Open",
-            "Ctrl+O",
-            self.open_dialog,
-        )
-        self.action(
-            self.toolbar,
-            QIcon.fromTheme("document-properties"),
-            "Save",
-            "Save",
-            "Ctrl+S",
-            self.save,
-        )
-        self.action(
-            self.toolbar,
-            QIcon.fromTheme("document-properties"),
-            "Make Main",
-            "Make Main",
-            "Ctrl+Shift+M",
-            self.set_current_as_main,
-        )
-        self.action(
-            self.toolbar,
-            QIcon.fromTheme("document-properties"),
-            "Compile PDF",
-            "Compile PDF",
-            "F5",
-            self.compile,
-        )
-        self.action(
-            self.toolbar,
-            QIcon.fromTheme("document-properties"),
-            "View PDF",
-            "View PDF",
-            "Ctrl+Shift+P",
-            self.activate_pdf,
-        )
-        self.action(
-            self.toolbar,
-            QIcon.fromTheme("document-properties"),
-            "Settings",
-            "Settings",
-            "Ctrl+,",
-            self.configure,
+            QIcon.fromTheme("document-new"),
+            ui_text("toolbar_from_template"),
+            ui_text("toolbar_from_template_tooltip"),
+            None,
+            self.create_from_template,
         )
 
         # Adicionar o espaçador
@@ -973,8 +1159,8 @@ class MainWindow(QMainWindow):
         self.action(
             self.toolbar,
             QIcon.fromTheme("document-properties"),
-            CONFIG["toolbar_configure"],
-            CONFIG["toolbar_configure_tooltip"],
+            ui_text("toolbar_configure"),
+            ui_text("toolbar_configure_tooltip"),
             None,
             self.open_configure_editor,
         )
@@ -983,8 +1169,8 @@ class MainWindow(QMainWindow):
         self.action(
             self.toolbar,
             QIcon.fromTheme("help-about"),
-            CONFIG["toolbar_about"],
-            CONFIG["toolbar_about_tooltip"],
+            ui_text("toolbar_about"),
+            ui_text("toolbar_about_tooltip"),
             None,
             self.open_about,
         )
@@ -993,8 +1179,8 @@ class MainWindow(QMainWindow):
         self.action(
             self.toolbar,
             QIcon.fromTheme("emblem-favorite"),
-            CONFIG["toolbar_coffee"],
-            CONFIG["toolbar_coffee_tooltip"],
+            ui_text("toolbar_coffee"),
+            ui_text("toolbar_coffee_tooltip"),
             None,
             self.on_coffee_action_click,
         )
@@ -1003,14 +1189,14 @@ class MainWindow(QMainWindow):
         self.toolbar.orientationChanged.connect(self.on_update_spacer_policy)
         self.on_update_spacer_policy()
 
-        m = self.menuBar().addMenu("File")
+        m = self.menuBar().addMenu(ui_text("menu_file"))
         for a in self.toolbar.actions()[:5]:
             m.addAction(a)
-        edit = self.menuBar().addMenu("Edit")
+        edit = self.menuBar().addMenu(ui_text("menu_edit"))
         for label, shortcut, method in (
-            ("Cut", "Ctrl+X", "cut"),
-            ("Copy", "Ctrl+C", "copy"),
-            ("Paste", "Ctrl+V", "paste"),
+            (ui_text("action_cut"), ui_text("shortcut_cut"), "cut"),
+            (ui_text("action_copy"), ui_text("shortcut_copy"), "copy"),
+            (ui_text("action_paste"), ui_text("shortcut_paste"), "paste"),
         ):
             action = QAction(label, self)
             action.setShortcut(shortcut)
@@ -1021,7 +1207,7 @@ class MainWindow(QMainWindow):
             self.addAction(action)
             edit.addAction(action)
         edit.addSeparator()
-        edit.addAction("Settings", self.configure)
+        edit.addAction(ui_text("action_settings"), self.configure)
 
     def on_update_spacer_policy(self):
         """Atualiza a política do espaçador baseado na orientação da toolbar"""
@@ -1048,7 +1234,7 @@ class MainWindow(QMainWindow):
             "program_name": about.__program_name__,
             "author": about.__author__,
             "email": about.__email__,
-            "description": about.__description__,
+            "description": ui_text("about_description"),
             "url_source": about.__url_source__,
             "url_doc": about.__url_doc__,
             "url_funding": about.__url_funding__,
@@ -1075,7 +1261,7 @@ class MainWindow(QMainWindow):
         ed.document().setModified(False)
         if path:
             self.watch_file(self.editors[ed])
-        label = Path(path).name if path else "Untitled.tex"
+        label = Path(path).name if path else ui_text("untitled_file")
         index = self.source_tabs.addTab(ed, label)
         self.source_tabs.setCurrentIndex(index)
         self.update_tab_label(ed)
@@ -1090,9 +1276,9 @@ class MainWindow(QMainWindow):
         if ed not in self.editors:
             return
         path = self.editors[ed]
-        name = Path(path).name if path else "Untitled.tex"
-        prefix = "★ " if path and path == self.main_file else ""
-        suffix = " *" if ed.document().isModified() else ""
+        name = Path(path).name if path else ui_text("untitled_file")
+        prefix = ui_text("tab_main_marker") if path and path == self.main_file else ""
+        suffix = ui_text("tab_modified_marker") if ed.document().isModified() else ""
         idx = self.source_tabs.indexOf(ed)
         if idx >= 0:
             self.source_tabs.setTabText(idx, prefix + name + suffix)
@@ -1101,16 +1287,27 @@ class MainWindow(QMainWindow):
 
     def refresh_title(self):
         path = self.path
-        title = Path(path).name if path else "Untitled.tex"
-        modified = " *" if self.editor and self.editor.document().isModified() else ""
-        main = Path(self.main_file).name if self.main_file else "no main file selected"
-        self.setWindowTitle(f"{title}{modified} — Main: {main} — LaTeX Studio")
+        title = Path(path).name if path else ui_text("untitled_file")
+        modified = ui_text("tab_modified_marker") if self.editor and self.editor.document().isModified() else ""
+        main = Path(self.main_file).name if self.main_file else ui_text("main_file_missing")
+        self.setWindowTitle(
+            ui_text(
+                "window_title_template",
+                document=title,
+                modified=modified,
+                main=main,
+            )
+        )
 
     def current_tab_changed(self, index):
         if self.editor:
             self.editor.setFocus()
             self.status.showMessage(
-                f"File: {self.path or 'Untitled'} | Main: {self.main_file or 'not selected'}"
+                ui_text(
+                    "status_current_file_template",
+                    path=self.path or ui_text("status_untitled"),
+                    main=self.main_file or ui_text("main_file_missing"),
+                )
             )
         self.refresh_title()
 
@@ -1118,11 +1315,19 @@ class MainWindow(QMainWindow):
         if not ed.document().isModified():
             return True
         self.source_tabs.setCurrentWidget(ed)
-        ans = QMessageBox.question(
+        ans = ask_question(
             self,
-            "Unsaved changes",
-            f"Save changes to {Path(self.editors[ed]).name if self.editors[ed] else 'untitled file'}?",
+            ui_text("dialog_unsaved_title"),
+            ui_text(
+                "dialog_unsaved_template",
+                filename=(
+                    Path(self.editors[ed]).name
+                    if self.editors[ed]
+                    else ui_text("status_untitled")
+                ),
+            ),
             QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+            QMessageBox.Cancel,
         )
         if ans == QMessageBox.Save:
             return self.save()
@@ -1131,12 +1336,50 @@ class MainWindow(QMainWindow):
     def new_file(self):
         self.add_editor()
 
+    def create_from_template(self):
+        """Create an untitled editor tab populated from an installed template."""
+        template_paths = sorted(
+            glob.glob(resource_path("data", "*.tex")),
+            key=lambda path: Path(path).name.casefold(),
+        )
+        if not template_paths:
+            QMessageBox.information(
+                self,
+                ui_text("dialog_template_empty_title"),
+                ui_text("dialog_template_empty_message"),
+            )
+            return
+
+        template_by_name = {Path(path).name: path for path in template_paths}
+        template_name, accepted = QInputDialog.getItem(
+            self,
+            ui_text("dialog_template_title"),
+            ui_text("dialog_template_prompt"),
+            list(template_by_name),
+            0,
+            False,
+        )
+        if not accepted:
+            return
+
+        try:
+            template_text = Path(template_by_name[template_name]).read_text(
+                encoding="utf-8"
+            )
+        except (OSError, UnicodeError) as error:
+            QMessageBox.warning(
+                self, ui_text("dialog_open_error_title"), str(error)
+            )
+            return
+
+        self.add_editor(text=template_text)
+
     def open_dialog(self):
         p, _ = QFileDialog.getOpenFileName(
             self,
-            "Open LaTeX or bibliography file",
+            ui_text("dialog_open_title"),
             "",
-            "TeX and bibliography (*.tex *.bib);;LaTeX (*.tex);;Bibliography (*.bib);;All files (*)",
+            ui_text("dialog_open_filter"),
         )
         if p:
             self.open_file(p)
@@ -1150,10 +1393,10 @@ class MainWindow(QMainWindow):
                     return ed
             ed = self.add_editor(resolved, Path(resolved).read_text(encoding="utf-8"))
             self._signatures[resolved] = self.file_signature(resolved)
-            self.status.showMessage(resolved)
+            self.status.showMessage(ui_text("status_opened_template", path=resolved))
             return ed
         except Exception as e:
-            QMessageBox.critical(self, "Erro ao abrir", str(e))
+            QMessageBox.critical(self, ui_text("dialog_open_error_title"), str(e))
 
     @staticmethod
     def file_signature(path):
@@ -1231,7 +1474,7 @@ class MainWindow(QMainWindow):
             self._signatures[path] = current
             if current is None:
                 self.status.showMessage(
-                    f"Monitored file was removed or is unavailable: {path}", 6000
+                    ui_text("status_missing_file_template", path=path), 6000
                 )
                 continue
             self.watch_file(path)
@@ -1239,10 +1482,13 @@ class MainWindow(QMainWindow):
                 (item for item, source in self.editors.items() if source == path), None
             )
             if ed:
-                answer = QMessageBox.question(
+                answer = ask_question(
                     self,
-                    "Source file changed",
-                    f"{Path(path).name} was modified outside the editor. Would you like to reload it?\n\nReloading discards unsaved local changes.",
+                    ui_text("dialog_source_changed_title"),
+                    ui_text(
+                        "dialog_source_changed_template",
+                        filename=Path(path).name,
+                    ),
                     QMessageBox.Yes | QMessageBox.No,
                     QMessageBox.No,
                 )
@@ -1252,14 +1498,21 @@ class MainWindow(QMainWindow):
                         ed.setPlainText(Path(path).read_text(encoding="utf-8"))
                         ed.document().setModified(False)
                         self.update_tab_label(ed)
-                        self.status.showMessage(f"Reloaded: {path}", 4000)
+                        self.status.showMessage(
+                            ui_text("status_reloaded_template", path=path), 4000
+                        )
                     except Exception as ex:
-                        QMessageBox.warning(self, "Reload failed", str(ex))
+                        QMessageBox.warning(
+                            self, ui_text("dialog_reload_error_title"), str(ex)
+                        )
             elif path == self._pdf_watch_path:
-                answer = QMessageBox.question(
+                answer = ask_question(
                     self,
-                    "PDF changed",
-                    f"{Path(path).name} was modified outside the editor. Would you like to reload it in the preview?",
+                    ui_text("dialog_pdf_changed_title"),
+                    ui_text(
+                        "dialog_pdf_changed_template",
+                        filename=Path(path).name,
+                    ),
                     QMessageBox.Yes | QMessageBox.No,
                     QMessageBox.Yes,
                 )
@@ -1268,7 +1521,9 @@ class MainWindow(QMainWindow):
                         self.pdf_window.load_pdf(path)
                         self.show_pdf()
                     except Exception as ex:
-                        QMessageBox.warning(self, "PDF reload failed", str(ex))
+                        QMessageBox.warning(
+                            self, ui_text("dialog_pdf_reload_error_title"), str(ex)
+                        )
 
     def save(self):
         ed = self.editor
@@ -1278,9 +1533,9 @@ class MainWindow(QMainWindow):
         if not path:
             p, _ = QFileDialog.getSaveFileName(
                 self,
-                "Save file",
+                ui_text("dialog_save_title"),
                 "",
-                "TeX and bibliography (*.tex *.bib);;LaTeX (*.tex);;Bibliography (*.bib)",
+                ui_text("dialog_save_filter"),
             )
             if not p:
                 return False
@@ -1295,17 +1550,21 @@ class MainWindow(QMainWindow):
             self._signatures[path] = self.file_signature(path)
             self.watch_file(path)
             self.update_tab_label(ed)
-            self.status.showMessage("Salvo: " + path, 3000)
+            self.status.showMessage(
+                ui_text("status_saved_template", path=path), 3000
+            )
             return True
         except Exception as e:
-            QMessageBox.critical(self, "Erro ao salvar", str(e))
+            QMessageBox.critical(self, ui_text("dialog_save_error_title"), str(e))
             return False
 
     def set_current_as_main(self):
         path = self.path
         if not path or Path(path).suffix.lower() != ".tex":
             QMessageBox.information(
-                self, "Main file", "Select a saved .tex tab to make it the main file."
+                self,
+                ui_text("dialog_main_file_title"),
+                ui_text("dialog_select_main_file"),
             )
             return
         self.main_file = path
@@ -1316,7 +1575,9 @@ class MainWindow(QMainWindow):
         if Path(pdf).exists():
             self.pdf_window.load_pdf(pdf)
         self.refresh_title()
-        self.status.showMessage(f"Main file: {path}", 4000)
+        self.status.showMessage(
+            ui_text("status_main_file_template", path=path), 4000
+        )
 
     def configure(self):
         d = SettingsDialog(self, self.settings)
@@ -1324,7 +1585,7 @@ class MainWindow(QMainWindow):
             d.save()
             for ed in self.editors:
                 ed.apply_appearance()
-            self.status.showMessage("Settings applied", 2500)
+            self.status.showMessage(ui_text("status_settings_applied"), 2500)
 
     def show_pdf(self):
         if not self.pdf_window.isVisible():
@@ -1342,11 +1603,11 @@ class MainWindow(QMainWindow):
             else:
                 QMessageBox.warning(
                     self,
-                    "Main file",
-                    "Open a .tex file and use 'Make Main File' before compiling.",
+                    ui_text("dialog_main_file_title"),
+                    ui_text("dialog_compile_main_file"),
                 )
                 return
-        if self.settings.value("auto_save", True):
+        if self.settings.value("auto_save", CONFIG["auto_save"]):
             for ed in list(self.editors):
                 if ed.document().isModified():
                     self.source_tabs.setCurrentWidget(ed)
@@ -1355,7 +1616,7 @@ class MainWindow(QMainWindow):
         self.compiling_main_file = self.main_file
         if self.process and self.process.state() != QProcess.NotRunning:
             return
-        tpl = self.settings.value("command", DEFAULTS["command"])
+        tpl = self.settings.value("command", CONFIG["command"])
         base = Path(self.compiling_main_file).stem
         out = Path(self.compiling_main_file).parent
         cmd = (
@@ -1363,8 +1624,10 @@ class MainWindow(QMainWindow):
             .replace("%basename%", shlex.quote(base))
             .replace("%directory%", shlex.quote(str(out)))
         )
-        passes = int(self.settings.value("passes", 1))
-        backend = self.settings.value("bibliography_backend", "none")
+        passes = int(self.settings.value("passes", CONFIG["passes"]))
+        backend = self.settings.value(
+            "bibliography_backend", CONFIG["bibliography_backend"]
+        )
         if backend in ("bibtex", "biber"):
             # Standard sequence: LaTeX creates aux data, bibliography tool
             # creates the bibliography, then LaTeX resolves citations/refs.
@@ -1382,7 +1645,11 @@ class MainWindow(QMainWindow):
             )
         self.log.clear()
         self.log.appendPlainText(
-            f"Main file: {self.compiling_main_file}\n$ {run_cmd}\n"
+            ui_text(
+                "log_main_file_template",
+                path=self.compiling_main_file,
+                command=run_cmd,
+            )
         )
         self.process = QProcess(self)
         self.process.setWorkingDirectory(str(out))
@@ -1394,10 +1661,10 @@ class MainWindow(QMainWindow):
         )
         self.process.finished.connect(self.compile_finished)
         self.process.start("/bin/sh", ["-lc", run_cmd])
-        self.status.showMessage("Compiling…")
+        self.status.showMessage(ui_text("status_compiling"))
 
     def compile_finished(self, code, status):
-        self.log.appendPlainText(f"\nCompilation finished (exit code {code}).")
+        self.log.appendPlainText(ui_text("log_compile_finished_template", code=code))
         pdf = str(Path(self.compiling_main_file).with_suffix(".pdf"))
         if code == 0 and Path(pdf).exists():
             resolved_pdf = str(Path(pdf).resolve())
@@ -1406,10 +1673,10 @@ class MainWindow(QMainWindow):
             self.watch_main_pdf()
             self.pdf_window.load_pdf(pdf)
             self.show_pdf()
-            self.status.showMessage("PDF compilado com sucesso", 5000)
+            self.status.showMessage(ui_text("status_compile_success"), 5000)
         else:
             self.status.showMessage(
-                "Compilation finished with errors; see the Build Output tab", 7000
+                ui_text("status_compile_errors"), 7000
             )
 
     def synctex(self, args):
@@ -1426,7 +1693,7 @@ class MainWindow(QMainWindow):
         pdf = str(Path(self.main_file).with_suffix(".pdf"))
         if not Path(pdf).exists():
             self.status.showMessage(
-                "Compile the document first to generate the PDF and SyncTeX data", 5000
+                ui_text("status_compile_before_sync"), 5000
             )
             return
         out = self.synctex(["edit", "-o", f"{page}:{x:.2f}:{y:.2f}:{pdf}"])
@@ -1440,11 +1707,16 @@ class MainWindow(QMainWindow):
                 ed.go_to(int(m.group(2)), int(m.group(3) or 1))
                 self.work_tabs.setCurrentWidget(self.source_tabs)
             self.status.showMessage(
-                f"SyncTeX: page {page} → {src.name}, line {m.group(2)}"
+                ui_text(
+                    "status_synctex_pdf_to_source_template",
+                    page=page,
+                    source=src.name,
+                    line=m.group(2),
+                )
             )
         else:
             self.status.showMessage(
-                "SyncTeX could not find source here. Make sure the PDF was compiled with -synctex=1.",
+                ui_text("status_synctex_missing_source"),
                 6000,
             )
 
@@ -1457,7 +1729,9 @@ class MainWindow(QMainWindow):
     def update_position(self, line, col):
         ed = self.sender()
         path = self.editors.get(ed)
-        self.status.showMessage(f"Line {line}, column {col}")
+        self.status.showMessage(
+            ui_text("status_cursor_template", line=line, column=col)
+        )
         if path:
             self._pending_position = (path, line, col)
         self._sync_timer.start(250)
@@ -1471,7 +1745,7 @@ class MainWindow(QMainWindow):
         pdf = str(Path(self.main_file).with_suffix(".pdf"))
         if not Path(pdf).exists():
             self.status.showMessage(
-                "Compile with SyncTeX before navigating to the PDF", 5000
+                ui_text("status_sync_before_compile"), 5000
             )
             return
         out = self.synctex(
@@ -1486,15 +1760,21 @@ class MainWindow(QMainWindow):
                 int(m.group(1)), float(m.group(2)), float(m.group(3))
             )
             self.pdf_window.statusBar().showMessage(
-                f"SyncTeX: {Path(source).name}, line {line}, column {col} → page {m.group(1)}"
+                ui_text(
+                    "status_synctex_source_to_pdf_template",
+                    source=Path(source).name,
+                    line=line,
+                    column=col,
+                    page=m.group(1),
+                )
             )
         elif out:
             self.status.showMessage(
-                "SyncTeX could not find a PDF position for this source location", 5000
+                ui_text("status_synctex_missing_position"), 5000
             )
         else:
             self.status.showMessage(
-                "Could not run synctex. Install SyncTeX and compile with -synctex=1.",
+                ui_text("status_synctex_unavailable"),
                 6000,
             )
 

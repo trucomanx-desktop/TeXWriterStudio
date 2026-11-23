@@ -1,0 +1,95 @@
+\documentclass{article}
+
+\usepackage[a4paper, margin=2.5cm]{geometry}
+
+\usepackage{amsthm}
+\usepackage[most]{tcolorbox}
+
+\usepackage{amsmath, amssymb}
+
+\newtcolorbox{equationbox}{
+    colback=gray!10,      % Fundo cinza claro
+    colframe=gray!40,     % Borda cinza
+    boxrule=0.5pt,        % Espessura da borda
+    arc=2mm,              % Cantos arredondados
+    left=3mm,
+    right=3mm,
+    top=2mm,
+    bottom=2mm
+}
+
+% Estilo dos teoremas
+\newtheoremstyle{mystyle}
+    {6pt}       % Espaço acima
+    {6pt}       % Espaço abaixo
+    {\itshape}  % Fonte do corpo
+    {}          % Recuo
+    {\bfseries} % Fonte do título
+    {.}         % Pontuação após título
+    { }         % Espaço após título
+    {}          % Especificação do título
+
+\theoremstyle{mystyle}
+\newtheorem{theorem}{Theorem}[section]
+
+
+\title{Title of article}
+\author{Name of Author}
+\date{}
+
+
+
+\begin{document}
+
+
+\maketitle
+
+
+
+\section{Variables}
+
+\begin{theorem}[%
+Solving $\boldsymbol{\Phi}^{T}\boldsymbol{\Phi} \equiv \mathbf{K}$
+]
+
+Writ here some text
+
+
+\begin{equationbox}
+\begin{align}
+\boldsymbol{\Phi}^{T}\boldsymbol{\Phi}
+&\equiv
+\mathbf{K}\\
+&=
+\mathbf{1}_{L\times L} +
+\begin{bmatrix}
+\boldsymbol{\phi}(\mathbf{x}_1)^{T} \boldsymbol{\phi}(\mathbf{x}_1) &
+\boldsymbol{\phi}(\mathbf{x}_1)^{T} \boldsymbol{\phi}(\mathbf{x}_2) &
+\dots &
+\boldsymbol{\phi}(\mathbf{x}_1)^{T} \boldsymbol{\phi}(\mathbf{x}_L) \\
+%
+\boldsymbol{\phi}(\mathbf{x}_2)^{T} \boldsymbol{\phi}(\mathbf{x}_1) &
+\boldsymbol{\phi}(\mathbf{x}_2)^{T} \boldsymbol{\phi}(\mathbf{x}_2) &
+\dots &
+\boldsymbol{\phi}(\mathbf{x}_2)^{T} \boldsymbol{\phi}(\mathbf{x}_L) \\
+%
+\vdots &
+\vdots &
+\vdots &
+\vdots \\
+\boldsymbol{\phi}(\mathbf{x}_L)^{T} \boldsymbol{\phi}(\mathbf{x}_1) &
+\boldsymbol{\phi}(\mathbf{x}_L)^{T} \boldsymbol{\phi}(\mathbf{x}_2) &
+\dots &
+\boldsymbol{\phi}(\mathbf{x}_L)^{T} \boldsymbol{\phi}(\mathbf{x}_L) \\
+\end{bmatrix}
+\end{align}
+\end{equationbox}
+
+\end{theorem}
+
+
+
+%\bibliographystyle{plain}
+%\bibliography{references}
+
+\end{document}
