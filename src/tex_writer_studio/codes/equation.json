@@ -3,5 +3,5 @@
     "name":"Equation",
     "tooltip":"Insert tex equation code",
     "shortcut": null,
-    "code": "\\begin{equation}\n\\label{eq:{{UUID}}}\nx\n\\end{equation}\n"
+    "code": "\\begin{equation}\n\\label{eq:{{UUID}}}\n\\sum\\limits_{n=1}^{N}n\n\\end{equation}\n"
 }

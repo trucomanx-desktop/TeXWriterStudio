@@ -1160,6 +1160,11 @@ class MainWindow(QMainWindow):
         self.pdf_window.canvas.clicked.connect(self.pdf_clicked)
         self.create_actions()
         self.create_actions_codes()
+        self.toolbar.setObjectName("mainToolbar")
+        self.code_toolbar.setObjectName("codeToolbar")
+        saved_toolbar_state = self.settings.value("toolbar_state")
+        if saved_toolbar_state:
+            self.restoreState(saved_toolbar_state)
         self._sync_timer = QTimer(self)
         self._sync_timer.setSingleShot(True)
         self._sync_timer.timeout.connect(self.sync_source_to_pdf)
@@ -2005,6 +2010,8 @@ class MainWindow(QMainWindow):
             if not self.maybe_save(ed):
                 e.ignore()
                 return
+        self.settings.setValue("toolbar_state", self.saveState())
+        self.settings.sync()
         self.pdf_window.close()
         e.accept()
 
