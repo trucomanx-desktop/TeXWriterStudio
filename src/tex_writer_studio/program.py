@@ -34,6 +34,7 @@ from PyQt5.QtGui import (
     QPainter,
     QTextCharFormat,
     QTextCursor,
+    QTextDocument,
     QSyntaxHighlighter,
     QIcon,
     QDesktopServices,
@@ -241,6 +242,23 @@ DEFAULT_CONTENT = {
         "tab_build_output": "Build Output",
         "menu_file": "File",
         "menu_edit": "Edit",
+        "action_find": "Find",
+        "action_replace": "Replace",
+        "shortcut_find": "Ctrl+F",
+        "shortcut_replace": "Ctrl+H",
+        "search_dialog_title": "Find and Replace",
+        "search_find_label": "Find",
+        "search_replace_label": "Replace with",
+        "search_find_placeholder": "Search text",
+        "search_replace_placeholder": "Replacement text",
+        "search_case_sensitive": "Case sensitive",
+        "search_highlight_matches": "Highlight all matches",
+        "search_find_next": "Find Next",
+        "search_replace_one": "Replace",
+        "search_replace_all": "Replace All",
+        "search_close": "Close",
+        "search_not_found": "No matching text was found",
+        "search_replaced_count": "Replaced {count} occurrence(s)",
         "action_new": "New",
         "action_open": "Open",
         "action_save": "Save",
@@ -1102,6 +1120,81 @@ class QPushButtonColor(QPushButton):
         self.setStyleSheet(f"background:{color};padding:6px")
 
 
+class SearchReplaceDialog(QDialog):
+    optionsChanged = pyqtSignal(str, bool, bool)
+    findNextRequested = pyqtSignal(str, bool)
+    replaceRequested = pyqtSignal(str, str, bool)
+    replaceAllRequested = pyqtSignal(str, str, bool)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(ui_text("search_dialog_title"))
+        self.setModal(False)
+
+        form = QFormLayout(self)
+        self.find_input = QLineEdit()
+        self.find_input.setPlaceholderText(ui_text("search_find_placeholder"))
+        self.replace_input = QLineEdit()
+        self.replace_input.setPlaceholderText(ui_text("search_replace_placeholder"))
+        self.case_sensitive = QCheckBox(ui_text("search_case_sensitive"))
+        self.highlight_matches = QCheckBox(ui_text("search_highlight_matches"))
+        self.highlight_matches.setChecked(True)
+
+        form.addRow(ui_text("search_find_label"), self.find_input)
+        form.addRow(ui_text("search_replace_label"), self.replace_input)
+        form.addRow(self.case_sensitive)
+        form.addRow(self.highlight_matches)
+
+        buttons = QHBoxLayout()
+        self.find_next_button = QPushButton(ui_text("search_find_next"))
+        self.replace_button = QPushButton(ui_text("search_replace_one"))
+        self.replace_all_button = QPushButton(ui_text("search_replace_all"))
+        self.close_button = QPushButton(ui_text("search_close"))
+        for button in (
+            self.find_next_button,
+            self.replace_button,
+            self.replace_all_button,
+            self.close_button,
+        ):
+            buttons.addWidget(button)
+        form.addRow(buttons)
+
+        self.find_input.textChanged.connect(self.emit_options)
+        self.case_sensitive.toggled.connect(self.emit_options)
+        self.highlight_matches.toggled.connect(self.emit_options)
+        self.find_next_button.clicked.connect(self.request_find_next)
+        self.replace_button.clicked.connect(self.request_replace)
+        self.replace_all_button.clicked.connect(self.request_replace_all)
+        self.close_button.clicked.connect(self.hide)
+        self.find_input.returnPressed.connect(self.request_find_next)
+
+    def emit_options(self, *_):
+        self.optionsChanged.emit(
+            self.find_input.text(),
+            self.case_sensitive.isChecked(),
+            self.highlight_matches.isChecked(),
+        )
+
+    def request_find_next(self):
+        self.findNextRequested.emit(
+            self.find_input.text(), self.case_sensitive.isChecked()
+        )
+
+    def request_replace(self):
+        self.replaceRequested.emit(
+            self.find_input.text(),
+            self.replace_input.text(),
+            self.case_sensitive.isChecked(),
+        )
+
+    def request_replace_all(self):
+        self.replaceAllRequested.emit(
+            self.find_input.text(),
+            self.replace_input.text(),
+            self.case_sensitive.isChecked(),
+        )
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -1142,6 +1235,11 @@ class MainWindow(QMainWindow):
         self.source_tabs.setTabsClosable(True)
         self.source_tabs.currentChanged.connect(self.current_tab_changed)
         self.source_tabs.tabCloseRequested.connect(self.close_tab)
+        self.search_dialog = SearchReplaceDialog(self)
+        self.search_dialog.optionsChanged.connect(self.refresh_search_highlights)
+        self.search_dialog.findNextRequested.connect(self.find_next)
+        self.search_dialog.replaceRequested.connect(self.replace_one)
+        self.search_dialog.replaceAllRequested.connect(self.replace_all)
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
         self.work_tabs = QTabWidget()
@@ -1338,6 +1436,21 @@ class MainWindow(QMainWindow):
             self.addAction(action)
             edit.addAction(action)
         edit.addSeparator()
+        find_action = QAction(ui_text("action_find"), self)
+        find_action.setShortcut(ui_text("shortcut_find"))
+        find_action.triggered.connect(
+            lambda checked=False: self.show_search_dialog()
+        )
+        self.addAction(find_action)
+        edit.addAction(find_action)
+        replace_action = QAction(ui_text("action_replace"), self)
+        replace_action.setShortcut(ui_text("shortcut_replace"))
+        replace_action.triggered.connect(
+            lambda checked=False: self.show_search_dialog(focus_replace=True)
+        )
+        self.addAction(replace_action)
+        edit.addAction(replace_action)
+        edit.addSeparator()
         edit.addAction(ui_text("action_settings"), self.configure)
 
     def on_update_spacer_policy(self):
@@ -1446,7 +1559,7 @@ class MainWindow(QMainWindow):
         ed.sourceChanged.connect(self.update_position)
         ed.rightClicked.connect(self.sync_source_to_pdf_at)
         ed.setContextMenuPolicy(Qt.PreventContextMenu)
-        ed.textChanged.connect(lambda e=ed: self.update_tab_label(e))
+        ed.textChanged.connect(lambda e=ed: self.on_editor_text_changed(e))
         ed.setPlainText(text)
         ed.document().setModified(False)
         if path:
@@ -1461,6 +1574,11 @@ class MainWindow(QMainWindow):
             self.watch_main_pdf()
         self.refresh_title()
         return ed
+
+    def on_editor_text_changed(self, ed):
+        self.update_tab_label(ed)
+        if ed is self.editor:
+            self.refresh_search_highlights()
 
     def update_tab_label(self, ed):
         if ed not in self.editors:
@@ -1500,6 +1618,116 @@ class MainWindow(QMainWindow):
                 )
             )
         self.refresh_title()
+        self.refresh_search_highlights()
+
+    def show_search_dialog(self, focus_replace=False):
+        editor = self.editor
+        selected_text = editor.textCursor().selectedText() if editor else ""
+        if selected_text and "\n" not in selected_text:
+            self.search_dialog.find_input.setText(selected_text)
+        self.search_dialog.show()
+        self.search_dialog.raise_()
+        self.search_dialog.activateWindow()
+        target = (
+            self.search_dialog.replace_input
+            if focus_replace
+            else self.search_dialog.find_input
+        )
+        target.setFocus()
+        target.selectAll()
+
+    def _search_flags(self, case_sensitive):
+        flags = QTextDocument.FindFlags()
+        if case_sensitive:
+            flags |= QTextDocument.FindCaseSensitively
+        return flags
+
+    def refresh_search_highlights(self, text=None, case_sensitive=None, enabled=None):
+        editor = self.editor
+        if editor is None:
+            return
+        if text is None:
+            text = self.search_dialog.find_input.text()
+        if case_sensitive is None:
+            case_sensitive = self.search_dialog.case_sensitive.isChecked()
+        if enabled is None:
+            enabled = self.search_dialog.highlight_matches.isChecked()
+
+        selections = []
+        if text and enabled:
+            document = editor.document()
+            cursor = QTextCursor(document)
+            flags = self._search_flags(case_sensitive)
+            while True:
+                cursor = document.find(text, cursor, flags)
+                if cursor.isNull():
+                    break
+                selection = QTextEdit.ExtraSelection()
+                selection.cursor = cursor
+                selection.format.setBackground(QColor("#f2c94c"))
+                selection.format.setForeground(QColor("#1e1e1e"))
+                selections.append(selection)
+                next_cursor = QTextCursor(document)
+                next_cursor.setPosition(cursor.selectionEnd())
+                cursor = next_cursor
+        editor.setExtraSelections(selections)
+
+    def find_next(self, text, case_sensitive=False):
+        editor = self.editor
+        if editor is None or not text:
+            return
+        flags = self._search_flags(case_sensitive)
+        match = editor.document().find(text, editor.textCursor(), flags)
+        if match.isNull():
+            start = QTextCursor(editor.document())
+            start.movePosition(QTextCursor.Start)
+            match = editor.document().find(text, start, flags)
+        if match.isNull():
+            self.status.showMessage(ui_text("search_not_found"), 4000)
+            return
+        editor.setTextCursor(match)
+        editor.setFocus()
+
+    def replace_one(self, text, replacement, case_sensitive=False):
+        editor = self.editor
+        if editor is None or not text:
+            return
+        cursor = editor.textCursor()
+        selected = cursor.selectedText()
+        matches = selected == text if case_sensitive else selected.casefold() == text.casefold()
+        if not matches:
+            self.find_next(text, case_sensitive)
+            return
+        cursor.insertText(replacement)
+        editor.setTextCursor(cursor)
+        editor.setFocus()
+        self.refresh_search_highlights()
+        self.find_next(text, case_sensitive)
+
+    def replace_all(self, text, replacement, case_sensitive=False):
+        editor = self.editor
+        if editor is None or not text:
+            return
+        document = editor.document()
+        flags = self._search_flags(case_sensitive)
+        cursor = QTextCursor(document)
+        count = 0
+        while True:
+            cursor = document.find(text, cursor, flags)
+            if cursor.isNull():
+                break
+            cursor.insertText(replacement)
+            count += 1
+            next_cursor = QTextCursor(document)
+            next_cursor.setPosition(cursor.position())
+            cursor = next_cursor
+        self.refresh_search_highlights()
+        if count:
+            self.status.showMessage(
+                ui_text("search_replaced_count", count=count), 5000
+            )
+        else:
+            self.status.showMessage(ui_text("search_not_found"), 4000)
 
     def maybe_save(self, ed):
         if not ed.document().isModified():
