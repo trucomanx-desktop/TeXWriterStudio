@@ -45,7 +45,7 @@ CONFIG_PATH = os.path.join(
 )
 
 DEFAULT_CONTENT = {
-        "window_width": 1024,
+    "window_width": 1024,
     "window_height": 800,
     "font_family": "DejaVu Sans Mono",
     "font_size": 12,
