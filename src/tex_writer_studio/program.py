@@ -11,6 +11,7 @@ import shlex
 import subprocess
 import sys
 import signal
+import uuid
 from pathlib import Path
 
 from PyQt5.QtCore import (
@@ -173,6 +174,13 @@ DEFAULT_CONTENT = {
         "toolbar_settings_shortcut": "Ctrl+,",
         "toolbar_settings_tooltip": "Configure editor and compilation settings",
         "toolbar_settings": "Settings",
+        "toolbar_code_title": "Code",
+        "code_equation": "Equation",
+        "code_equation_tooltip": "Insert an equation environment with a unique label",
+        "code_itemize": "Itemize",
+        "code_itemize_tooltip": "Insert an itemize list",
+        "code_figure": "Figure",
+        "code_figure_tooltip": "Insert a figure environment",
         #
         "toolbar_from_template": "From Template",
         "toolbar_from_template_tooltip": "Create a new document from a LaTeX template",
@@ -1155,6 +1163,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.status)
         self.pdf_window.canvas.clicked.connect(self.pdf_clicked)
         self.create_actions()
+        self.create_actions_codes()
         self._sync_timer = QTimer(self)
         self._sync_timer.setSingleShot(True)
         self._sync_timer.timeout.connect(self.sync_source_to_pdf)
@@ -1347,6 +1356,69 @@ class MainWindow(QMainWindow):
 
     def open_configure_editor(self):
         self._open_file_in_text_editor(CONFIG_PATH)
+
+    def create_actions_codes(self):
+        """Create toolbar actions that insert common LaTeX code snippets."""
+        self.code_toolbar = self.addToolBar(ui_text("toolbar_code_title"))
+        self.code_toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+
+        self.action(
+            self.code_toolbar,
+            QIcon.fromTheme("insert-text"),
+            ui_text("code_equation"),
+            ui_text("code_equation_tooltip"),
+            None,
+            self.insert_equation,
+        )
+        self.action(
+            self.code_toolbar,
+            QIcon.fromTheme("view-list-ordered"),
+            ui_text("code_itemize"),
+            ui_text("code_itemize_tooltip"),
+            None,
+            self.insert_itemize,
+        )
+        self.action(
+            self.code_toolbar,
+            QIcon.fromTheme("image-x-generic"),
+            ui_text("code_figure"),
+            ui_text("code_figure_tooltip"),
+            None,
+            self.insert_figure,
+        )
+
+    def insert_code_snippet(self, snippet):
+        editor = self.editor
+        if editor is not None:
+            editor.insertPlainText(snippet)
+            editor.setFocus()
+
+    def insert_equation(self):
+        label_id = uuid.uuid4().hex[:12]
+        self.insert_code_snippet(
+            "\\begin{equation}\n"
+            f"\\label{{eq:{label_id}}}\n"
+            "x\n"
+            "\\end{equation}"
+        )
+
+    def insert_itemize(self):
+        self.insert_code_snippet(
+            "\\begin{itemize}\n"
+            "\\item First item\n"
+            "\\end{itemize}"
+        )
+
+    def insert_figure(self):
+        label_id = uuid.uuid4().hex[:12]
+        self.insert_code_snippet(
+            "\\begin{figure}[!htb]\n"
+            "\\centering\n"
+            "\\includegraphics[width=\\linewidth]{path/to/image}\n"
+            "\\caption{Description of figure}\n"
+            f"\\label{{fig:{label_id}}}\n"
+            "\\end{figure}"
+        )
 
     def open_about(self):
         data = {
