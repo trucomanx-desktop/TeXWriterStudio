@@ -15,63 +15,15 @@ import uuid
 from pathlib import Path
 
 from PyQt5.QtCore import (
-    Qt,
-    QProcess,
-    QSettings,
-    QTimer,
-    QRect,
-    QSize,
-    QFileSystemWatcher,
-    QProcessEnvironment,
-    QUrl,
-    pyqtSignal,
+    Qt, QProcess, QSettings, QTimer, QRect, QSize, QFileSystemWatcher, QProcessEnvironment, QUrl, pyqtSignal,
 )
 from PyQt5.QtGui import (
-    QColor,
-    QFont,
-    QFontMetrics,
-    QImage,
-    QPainter,
-    QTextCharFormat,
-    QTextCursor,
-    QTextDocument,
-    QTextFormat,
-    QSyntaxHighlighter,
-    QIcon,
-    QDesktopServices,
+    QColor, QFont, QFontMetrics, QImage, QPainter, QTextCharFormat, QTextCursor, QTextDocument, QTextFormat, QSyntaxHighlighter, QIcon, QDesktopServices,
 )
 from PyQt5.QtWidgets import (
-    QApplication,
-    QCheckBox,
-    QColorDialog,
-    QComboBox,
-    QDialog,
-    QDialogButtonBox,
-    QFileDialog,
-    QFormLayout,
-    QFontComboBox,
-    QHBoxLayout,
-    QLabel,
-    QMainWindow,
-    QInputDialog,
-    QMessageBox,
-    QPlainTextEdit,
-    QLineEdit,
-    QListWidget,
-    QListWidgetItem,
-    QScrollArea,
-    QSpinBox,
-    QSplitter,
-    QTabWidget,
-    QTabBar,
-    QTextEdit,
-    QToolBar,
-    QVBoxLayout,
-    QWidget,
-    QAction,
-    QStatusBar,
-    QSizePolicy,
-    QMenu,
+    QApplication, CheckBox, QColorDialog, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QFontComboBox, QHBoxLayout, QLabel,
+    QMainWindow, QInputDialog, QMessageBox, QPlainTextEdit, QLineEdit, QListWidget, QListWidgetItem, QScrollArea, QSpinBox, QSplitter,
+    QTabWidget, QTabBar, QTextEdit, QToolBar, QVBoxLayout, QWidget, QAction, QStatusBar, QSizePolicy, QMenu,
 )
 
 import tex_writer_studio.about as about
@@ -84,6 +36,8 @@ from tex_writer_studio.desktop import (
     create_desktop_directory,
     create_desktop_menu,
 )
+
+from tex_writer_studio.mimetype import ensure_mime_type
 
 # ---------- Path to config file ----------
 CONFIG_PATH = os.path.join(
