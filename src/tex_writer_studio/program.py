@@ -35,6 +35,7 @@ from PyQt5.QtGui import (
     QTextCharFormat,
     QTextCursor,
     QTextDocument,
+    QTextFormat,
     QSyntaxHighlighter,
     QIcon,
     QDesktopServices,
@@ -98,9 +99,16 @@ DEFAULT_CONTENT = {
     "gutter_fg": "#858585",
     "selection_bg": "#264f78",
     "current_line": "#282828",
+    "current_line_color": "#808080",
+    "current_line_intensity": 10,
+    "flash_duration_ms": 720,
     "command": "pdflatex -synctex=1 -interaction=nonstopmode -file-line-error %filename%",
     "passes": 1,
     "auto_save": True,
+    "highlight_matching_brackets": True,
+    "highlight_selected_occurrences": True,
+    "highlight_current_line": True,
+    "flash_pdf_source_line": True,
     "theme": "Dark",
     "pdf_zoom": 1.0,
     "bibliography_backend": "none",
@@ -140,6 +148,15 @@ DEFAULT_CONTENT = {
         "settings_backend": "Bibliography tool",
         "settings_passes": "LaTeX passes",
         "settings_autosave": "Save automatically before compiling",
+        "settings_matching_brackets": "Highlight matching brackets",
+        "settings_selected_occurrences": "Highlight occurrences of selected text",
+        "settings_current_line": "Highlight the current line",
+        "settings_current_line_color": "Color",
+        "settings_current_line_intensity": "Intensity",
+        "settings_percent_suffix": " %",
+        "settings_flash_pdf_line": "Flash the source line after a PDF jump",
+        "settings_flash_duration": "Duration",
+        "settings_milliseconds_suffix": " ms",
         "settings_color_editor_bg": "Editor background",
         "settings_color_editor_fg": "Editor text",
         "settings_color_gutter_bg": "Line number background",
@@ -342,6 +359,13 @@ def ui_text(key, **values):
     return CONFIG["ui"][key].format(**values)
 
 
+def setting_enabled(settings, key):
+    value = settings.value(key, CONFIG[key])
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() not in ("false", "0", "no", "off", "")
+
+
 def ask_question(parent, title, message, buttons, default_button):
     """Show a question dialog using configurable labels for standard buttons."""
     dialog = QMessageBox(parent)
@@ -463,12 +487,23 @@ class CodeEditor(QPlainTextEdit):
         super().__init__()
         self.settings = settings
         self.setAcceptDrops(True)
+        self.search_highlight_selections = []
+        self._bracket_selections = []
+        self._selected_occurrence_selections = []
+        self._current_line_selections = []
+        self._flash_line_number = None
+        self._flash_visible = False
+        self._flash_steps_remaining = 0
+        self._flash_timer = QTimer(self)
+        self._flash_timer.setInterval(180)
+        self._flash_timer.timeout.connect(self._advance_line_flash)
         self.highlighter = LatexHighlighter(
             self.document(), settings.value("theme", CONFIG["theme"])
         )
         self.setToolTip(ui_text("editor_tooltip"))
         self.setTabStopDistance(QFontMetrics(self.font()).horizontalAdvance(" ") * 4)
         self.cursorPositionChanged.connect(self.report_cursor)
+        self.selectionChanged.connect(self.refresh_editor_decorations)
         self.apply_appearance()
 
     def dragEnterEvent(self, event):
@@ -500,6 +535,181 @@ class CodeEditor(QPlainTextEdit):
         )
         self.highlighter.set_theme(self.settings.value("theme", CONFIG["theme"]))
         self.highlighter.rehighlight()
+        self.refresh_editor_decorations()
+
+    def set_search_highlight_selections(self, selections):
+        self.search_highlight_selections = selections
+        self.apply_extra_selections()
+
+    def _character_at(self, position):
+        return self.document().characterAt(position)
+
+    def _is_escaped_bracket(self, position):
+        backslashes = 0
+        scan = position - 1
+        while scan >= 0 and self._character_at(scan) == "\\":
+            backslashes += 1
+            scan -= 1
+        return backslashes % 2 == 1
+
+    def _matching_bracket_position(self, position, bracket):
+        pairs = {"{": "}", "(": ")"}
+        reverse_pairs = {closing: opening for opening, closing in pairs.items()}
+        document_end = self.document().characterCount() - 1
+
+        if bracket in pairs:
+            stack = [pairs[bracket]]
+            for scan in range(position + 1, document_end):
+                current = self._character_at(scan)
+                if current not in "{}()" or self._is_escaped_bracket(scan):
+                    continue
+                if current in pairs:
+                    stack.append(pairs[current])
+                elif stack and current == stack[-1]:
+                    stack.pop()
+                    if not stack:
+                        return scan
+        elif bracket in reverse_pairs:
+            stack = [reverse_pairs[bracket]]
+            for scan in range(position - 1, -1, -1):
+                current = self._character_at(scan)
+                if current not in "{}()" or self._is_escaped_bracket(scan):
+                    continue
+                if current in reverse_pairs:
+                    stack.append(reverse_pairs[current])
+                elif stack and current == stack[-1]:
+                    stack.pop()
+                    if not stack:
+                        return scan
+        return None
+
+    def _make_character_selection(self, position, background, foreground=None):
+        selection = QTextEdit.ExtraSelection()
+        selection.cursor = QTextCursor(self.document())
+        selection.cursor.setPosition(position)
+        selection.cursor.movePosition(QTextCursor.Right, QTextCursor.KeepAnchor)
+        selection.format.setBackground(QColor(background))
+        if foreground:
+            selection.format.setForeground(QColor(foreground))
+        return selection
+
+    def _refresh_bracket_selections(self):
+        self._bracket_selections = []
+        if not setting_enabled(self.settings, "highlight_matching_brackets"):
+            return
+        cursor = self.textCursor()
+        if cursor.hasSelection() or cursor.position() <= 0:
+            return
+        position = cursor.position() - 1
+        bracket = self._character_at(position)
+        if bracket not in "{}()" or self._is_escaped_bracket(position):
+            return
+        matching_position = self._matching_bracket_position(position, bracket)
+        if matching_position is None:
+            return
+        self._bracket_selections = [
+            self._make_character_selection(position, "#725aa6", "#ffffff"),
+            self._make_character_selection(matching_position, "#725aa6", "#ffffff"),
+        ]
+
+    def _refresh_selected_occurrence_selections(self):
+        self._selected_occurrence_selections = []
+        if not setting_enabled(self.settings, "highlight_selected_occurrences"):
+            return
+        selected_text = self.textCursor().selectedText()
+        if not selected_text or "\n" in selected_text or "\u2029" in selected_text:
+            return
+        document = self.document()
+        cursor = QTextCursor(document)
+        while True:
+            cursor = document.find(selected_text, cursor)
+            if cursor.isNull():
+                break
+            selection = QTextEdit.ExtraSelection()
+            selection.cursor = cursor
+            selection.format.setBackground(QColor("#4c9a91"))
+            selection.format.setForeground(QColor("#ffffff"))
+            self._selected_occurrence_selections.append(selection)
+            next_cursor = QTextCursor(document)
+            next_cursor.setPosition(cursor.selectionEnd())
+            cursor = next_cursor
+
+    def _refresh_current_line_selection(self):
+        self._current_line_selections = []
+        if not setting_enabled(self.settings, "highlight_current_line"):
+            return
+        background = QColor(self.settings.value("editor_bg", CONFIG["editor_bg"]))
+        overlay = QColor(
+            self.settings.value("current_line_color", CONFIG["current_line_color"])
+        )
+        intensity = max(
+            0,
+            min(100, int(self.settings.value("current_line_intensity", CONFIG["current_line_intensity"]))),
+        )
+        ratio = intensity / 100
+        line_color = QColor(
+            round(background.red() * (1 - ratio) + overlay.red() * ratio),
+            round(background.green() * (1 - ratio) + overlay.green() * ratio),
+            round(background.blue() * (1 - ratio) + overlay.blue() * ratio),
+        )
+        selection = QTextEdit.ExtraSelection()
+        selection.cursor = self.textCursor()
+        selection.cursor.clearSelection()
+        selection.format.setBackground(line_color)
+        selection.format.setProperty(QTextFormat.FullWidthSelection, True)
+        self._current_line_selections.append(selection)
+
+    def refresh_editor_decorations(self, *_):
+        self._refresh_bracket_selections()
+        self._refresh_selected_occurrence_selections()
+        self._refresh_current_line_selection()
+        self.apply_extra_selections()
+
+    def apply_extra_selections(self):
+        selections = (
+            self._current_line_selections
+            + ([self._flash_selection()] if self._flash_visible else [])
+            + self._bracket_selections
+            + self._selected_occurrence_selections
+            + self.search_highlight_selections
+        )
+        self.setExtraSelections(selections)
+
+    def _flash_selection(self):
+        selection = QTextEdit.ExtraSelection()
+        selection.cursor = QTextCursor(self.document())
+        if self._flash_line_number is not None:
+            block = self.document().findBlockByNumber(self._flash_line_number)
+            if block.isValid():
+                selection.cursor.setPosition(block.position())
+        selection.format.setBackground(QColor("#b78d32"))
+        selection.format.setProperty(QTextFormat.FullWidthSelection, True)
+        return selection
+
+    def flash_current_line(self):
+        if not setting_enabled(self.settings, "flash_pdf_source_line"):
+            return
+        self._flash_line_number = self.textCursor().blockNumber()
+        self._flash_visible = True
+        self._flash_steps_remaining = 4
+        duration = max(
+            200,
+            int(self.settings.value("flash_duration_ms", CONFIG["flash_duration_ms"])),
+        )
+        self._flash_timer.setInterval(max(50, duration // 4))
+        self.apply_extra_selections()
+        self._flash_timer.start()
+
+    def _advance_line_flash(self):
+        self._flash_visible = not self._flash_visible
+        self._flash_steps_remaining -= 1
+        if self._flash_steps_remaining <= 0:
+            self._flash_timer.stop()
+            self._flash_visible = False
+            self._flash_line_number = None
+        self.apply_extra_selections()
+        if self._flash_steps_remaining > 0:
+            self._flash_timer.start()
 
     def wheelEvent(self, e):
         if e.modifiers() & Qt.ControlModifier:
@@ -514,6 +724,7 @@ class CodeEditor(QPlainTextEdit):
     def report_cursor(self):
         c = self.textCursor()
         self.sourceChanged.emit(c.blockNumber() + 1, c.positionInBlock() + 1)
+        self.refresh_editor_decorations()
 
 
 class LineNumberArea(QWidget):
@@ -1075,9 +1286,44 @@ class SettingsDialog(QDialog):
         )
         self.backend.setCurrentIndex(max(0, current))
         self.autosave = QCheckBox(ui_text("settings_autosave"))
-        self.autosave.setChecked(
-            str(settings.value("auto_save", CONFIG["auto_save"])).lower()
-            not in ("false", "0")
+        self.autosave.setChecked(setting_enabled(settings, "auto_save"))
+        self.highlight_matching_brackets = QCheckBox(
+            ui_text("settings_matching_brackets")
+        )
+        self.highlight_matching_brackets.setChecked(
+            setting_enabled(settings, "highlight_matching_brackets")
+        )
+        self.highlight_selected_occurrences = QCheckBox(
+            ui_text("settings_selected_occurrences")
+        )
+        self.highlight_selected_occurrences.setChecked(
+            setting_enabled(settings, "highlight_selected_occurrences")
+        )
+        self.highlight_current_line = QCheckBox(ui_text("settings_current_line"))
+        self.highlight_current_line.setChecked(
+            setting_enabled(settings, "highlight_current_line")
+        )
+        self.current_line_color = QColor(
+            settings.value("current_line_color", CONFIG["current_line_color"])
+        )
+        self.current_line_color_button = QPushButtonColor(self.current_line_color.name())
+        self.current_line_color_button.clicked.connect(self.pick_current_line_color)
+        self.current_line_intensity = QSpinBox()
+        self.current_line_intensity.setRange(0, 100)
+        self.current_line_intensity.setSuffix(ui_text("settings_percent_suffix"))
+        self.current_line_intensity.setValue(
+            int(settings.value("current_line_intensity", CONFIG["current_line_intensity"]))
+        )
+        self.flash_pdf_source_line = QCheckBox(ui_text("settings_flash_pdf_line"))
+        self.flash_pdf_source_line.setChecked(
+            setting_enabled(settings, "flash_pdf_source_line")
+        )
+        self.flash_duration = QSpinBox()
+        self.flash_duration.setRange(200, 5000)
+        self.flash_duration.setSingleStep(100)
+        self.flash_duration.setSuffix(ui_text("settings_milliseconds_suffix"))
+        self.flash_duration.setValue(
+            int(settings.value("flash_duration_ms", CONFIG["flash_duration_ms"]))
         )
         form.addRow(ui_text("settings_font"), self.font)
         form.addRow(ui_text("settings_font_size"), self.size)
@@ -1086,6 +1332,34 @@ class SettingsDialog(QDialog):
         form.addRow(ui_text("settings_backend"), self.backend)
         form.addRow(ui_text("settings_passes"), self.passes)
         form.addRow("", self.autosave)
+        form.addRow("", self.highlight_matching_brackets)
+        form.addRow("", self.highlight_selected_occurrences)
+        current_line_options = QHBoxLayout()
+        current_line_options.addWidget(self.highlight_current_line)
+        current_line_options.addSpacing(12)
+        current_line_options.addWidget(QLabel(ui_text("settings_current_line_color")))
+        current_line_options.addWidget(self.current_line_color_button)
+        current_line_options.addWidget(QLabel(ui_text("settings_current_line_intensity")))
+        current_line_options.addWidget(self.current_line_intensity)
+        current_line_options.addStretch(1)
+        form.addRow("", current_line_options)
+        flash_options = QHBoxLayout()
+        flash_options.addWidget(self.flash_pdf_source_line)
+        flash_options.addSpacing(12)
+        flash_options.addWidget(QLabel(ui_text("settings_flash_duration")))
+        flash_options.addWidget(self.flash_duration)
+        flash_options.addStretch(1)
+        form.addRow("", flash_options)
+        self.highlight_current_line.toggled.connect(
+            self.current_line_color_button.setEnabled
+        )
+        self.highlight_current_line.toggled.connect(
+            self.current_line_intensity.setEnabled
+        )
+        self.current_line_color_button.setEnabled(self.highlight_current_line.isChecked())
+        self.current_line_intensity.setEnabled(self.highlight_current_line.isChecked())
+        self.flash_pdf_source_line.toggled.connect(self.flash_duration.setEnabled)
+        self.flash_duration.setEnabled(self.flash_pdf_source_line.isChecked())
         self.color_buttons = {}
         for key, label in [
             ("editor_bg", ui_text("settings_color_editor_bg")),
@@ -1111,6 +1385,14 @@ class SettingsDialog(QDialog):
             self.s.setValue(key, c.name())
             button.setStyleSheet(f"background:{c.name()};padding:6px")
 
+    def pick_current_line_color(self):
+        color = QColorDialog.getColor(self.current_line_color, self)
+        if color.isValid():
+            self.current_line_color = color
+            self.current_line_color_button.setStyleSheet(
+                f"background:{color.name()};padding:6px"
+            )
+
     def save(self):
         self.s.setValue("font_family", self.font.currentFont().family())
         self.s.setValue("font_size", self.size.value())
@@ -1119,6 +1401,19 @@ class SettingsDialog(QDialog):
         self.s.setValue("passes", self.passes.value())
         self.s.setValue("bibliography_backend", self.backend.currentData())
         self.s.setValue("auto_save", self.autosave.isChecked())
+        self.s.setValue(
+            "highlight_matching_brackets",
+            self.highlight_matching_brackets.isChecked(),
+        )
+        self.s.setValue(
+            "highlight_selected_occurrences",
+            self.highlight_selected_occurrences.isChecked(),
+        )
+        self.s.setValue("highlight_current_line", self.highlight_current_line.isChecked())
+        self.s.setValue("flash_pdf_source_line", self.flash_pdf_source_line.isChecked())
+        self.s.setValue("current_line_color", self.current_line_color.name())
+        self.s.setValue("current_line_intensity", self.current_line_intensity.value())
+        self.s.setValue("flash_duration_ms", self.flash_duration.value())
 
 
 from PyQt5.QtWidgets import QPushButton
@@ -1588,6 +1883,7 @@ class MainWindow(QMainWindow):
 
     def on_editor_text_changed(self, ed):
         self.update_tab_label(ed)
+        ed.refresh_editor_decorations()
         if ed is self.editor:
             self.refresh_search_highlights()
 
@@ -1681,7 +1977,7 @@ class MainWindow(QMainWindow):
                 next_cursor = QTextCursor(document)
                 next_cursor.setPosition(cursor.selectionEnd())
                 cursor = next_cursor
-        editor.setExtraSelections(selections)
+        editor.set_search_highlight_selections(selections)
 
     def find_next(self, text, case_sensitive=False):
         editor = self.editor
@@ -2050,6 +2346,7 @@ class MainWindow(QMainWindow):
             d.save()
             for ed in self.editors:
                 ed.apply_appearance()
+            self.refresh_search_highlights()
             self.status.showMessage(ui_text("status_settings_applied"), 2500)
 
     def show_pdf(self):
@@ -2182,6 +2479,7 @@ class MainWindow(QMainWindow):
             ed = self.open_file(src)
             if ed:
                 ed.go_to(int(m.group(2)), int(m.group(3) or 1))
+                ed.flash_current_line()
                 self.work_tabs.setCurrentWidget(self.source_tabs)
             self.status.showMessage(
                 ui_text(
