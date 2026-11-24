@@ -1,0 +1,7 @@
+{
+    "icon":"equation.svg",
+    "name":"Equation",
+    "tooltip":"Insert tex equation code",
+    "shortcut": null,
+    "code": "\\begin{equation}\n\\label{eq:{{UUID}}}\nx\n\\end{equation}\n"
+}

@@ -62,7 +62,7 @@ dependencies = [
 packages = ["{__package__}", "{__package__}.modules"]
 
 [tool.setuptools.package-data]
-"{__package__}" = ["icons/*.png", "icons/*.svg", "data/*.tex"]
+"{__package__}" = ["icons/*.png", "icons/*.svg", "data/*.tex", "codes/*.json", "codes/*.png", "codes/*.svg"]
 """
 
 # Escreve o pyproject.toml

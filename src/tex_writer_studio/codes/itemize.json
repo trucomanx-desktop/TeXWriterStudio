@@ -1,4 +1,7 @@
 {
-    "icon":"filename.png",
+    "icon":"itemize.svg",
+    "name":"Itemize",
+    "tooltip":"Insert tex itemize code",
+    "shortcut": null,
     "code":"\\begin{itemize}\n\\item Firstitem text\n\\end{itemize}\n"
 }

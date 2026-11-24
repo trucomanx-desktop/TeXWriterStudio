@@ -175,12 +175,8 @@ DEFAULT_CONTENT = {
         "toolbar_settings_tooltip": "Configure editor and compilation settings",
         "toolbar_settings": "Settings",
         "toolbar_code_title": "Code",
-        "code_equation": "Equation",
-        "code_equation_tooltip": "Insert an equation environment with a unique label",
-        "code_itemize": "Itemize",
-        "code_itemize_tooltip": "Insert an itemize list",
-        "code_figure": "Figure",
-        "code_figure_tooltip": "Insert a figure environment",
+        "dialog_code_json_error_title": "Could not load code action",
+        "dialog_code_json_error_template": "Could not load {filename}: {error}",
         #
         "toolbar_from_template": "From Template",
         "toolbar_from_template_tooltip": "Create a new document from a LaTeX template",
@@ -1358,67 +1354,62 @@ class MainWindow(QMainWindow):
         self._open_file_in_text_editor(CONFIG_PATH)
 
     def create_actions_codes(self):
-        """Create toolbar actions that insert common LaTeX code snippets."""
+        """Build code-insertion actions from JSON files in the codes folder."""
         self.code_toolbar = self.addToolBar(ui_text("toolbar_code_title"))
         self.code_toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        codes_directory = resource_path("codes")
 
-        self.action(
-            self.code_toolbar,
-            QIcon.fromTheme("insert-text"),
-            ui_text("code_equation"),
-            ui_text("code_equation_tooltip"),
-            None,
-            self.insert_equation,
-        )
-        self.action(
-            self.code_toolbar,
-            QIcon.fromTheme("view-list-ordered"),
-            ui_text("code_itemize"),
-            ui_text("code_itemize_tooltip"),
-            None,
-            self.insert_itemize,
-        )
-        self.action(
-            self.code_toolbar,
-            QIcon.fromTheme("image-x-generic"),
-            ui_text("code_figure"),
-            ui_text("code_figure_tooltip"),
-            None,
-            self.insert_figure,
-        )
+        for json_path in sorted(glob.glob(resource_path("codes", "*.json"))):
+            try:
+                with open(json_path, "r", encoding="utf-8") as code_file:
+                    action_data = json.load(code_file)
+
+                if not isinstance(action_data, dict):
+                    raise ValueError("the JSON root must be an object")
+                name = action_data.get("name")
+                tooltip = action_data.get("tooltip")
+                code = action_data.get("code")
+                shortcut = action_data.get("shortcut")
+                icon_name = action_data.get("icon")
+                if not all(isinstance(value, str) for value in (name, tooltip, code)):
+                    raise ValueError("'name', 'tooltip', and 'code' must be strings")
+                if shortcut is not None and not isinstance(shortcut, str):
+                    raise ValueError("'shortcut' must be a string or null")
+                if icon_name is not None and not isinstance(icon_name, str):
+                    raise ValueError("'icon' must be a filename or null")
+            except (OSError, json.JSONDecodeError, ValueError) as error:
+                QMessageBox.warning(
+                    self,
+                    ui_text("dialog_code_json_error_title"),
+                    ui_text(
+                        "dialog_code_json_error_template",
+                        filename=Path(json_path).name,
+                        error=error,
+                    ),
+                )
+                continue
+
+            icon = QIcon.fromTheme("insert-text")
+            if icon_name:
+                icon_path = os.path.join(codes_directory, icon_name)
+                if os.path.isfile(icon_path):
+                    icon = QIcon(icon_path)
+
+            self.action(
+                self.code_toolbar,
+                icon,
+                name,
+                tooltip,
+                shortcut,
+                lambda checked=False, snippet=code: self.insert_code_snippet(snippet),
+            )
 
     def insert_code_snippet(self, snippet):
         editor = self.editor
         if editor is not None:
+            snippet = snippet.replace("{{UUID}}", uuid.uuid4().hex[:12])
             editor.insertPlainText(snippet)
             editor.setFocus()
-
-    def insert_equation(self):
-        label_id = uuid.uuid4().hex[:12]
-        self.insert_code_snippet(
-            "\\begin{equation}\n"
-            f"\\label{{eq:{label_id}}}\n"
-            "x\n"
-            "\\end{equation}"
-        )
-
-    def insert_itemize(self):
-        self.insert_code_snippet(
-            "\\begin{itemize}\n"
-            "\\item First item\n"
-            "\\end{itemize}"
-        )
-
-    def insert_figure(self):
-        label_id = uuid.uuid4().hex[:12]
-        self.insert_code_snippet(
-            "\\begin{figure}[!htb]\n"
-            "\\centering\n"
-            "\\includegraphics[width=\\linewidth]{path/to/image}\n"
-            "\\caption{Description of figure}\n"
-            f"\\label{{fig:{label_id}}}\n"
-            "\\end{figure}"
-        )
 
     def open_about(self):
         data = {
