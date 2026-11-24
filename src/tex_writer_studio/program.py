@@ -286,6 +286,9 @@ DEFAULT_CONTENT = {
         "dialog_source_changed_title": "Source file changed",
         "dialog_source_changed_message": "{filename} was modified outside the editor. Would you like to reload it?\n\nReloading discards unsaved local changes.",
         "status_file_reloaded": "Reloaded: {path}",
+        "status_pdf_reloaded": "PDF preview updated: {filename}",
+        "status_pdf_reload_retry": "The PDF is still being written; retrying the preview update…",
+        "status_pdf_reload_failed": "Could not update the PDF preview: {error}",
         "dialog_reload_error_title": "Reload failed",
         "dialog_pdf_changed_title": "PDF changed",
         "dialog_pdf_changed_message": "{filename} was modified outside the editor. Would you like to reload it in the preview?",
@@ -720,6 +723,7 @@ class PdfWindow(QMainWindow):
         self.settings = settings
         self.document = None
         self.pdf_path = None
+        self.last_pdf_error = ""
         self.render_timer = QTimer(self)
         self.render_timer.setSingleShot(True)
         self.render_timer.timeout.connect(self.render_pages)
@@ -734,24 +738,30 @@ class PdfWindow(QMainWindow):
         self.canvas.zoom = float(settings.value("pdf_zoom", CONFIG["pdf_zoom"]))
         self.statusBar().showMessage(ui_text("pdf_zoom_hint"))
 
-    def load_pdf(self, path):
+    def load_pdf(self, path, show_error=True):
         try:
             import fitz
 
+            new_document = fitz.open(path)
             if self.document:
                 self.document.close()
-            self.document = fitz.open(path)
+            self.document = new_document
             self.pdf_path = str(Path(path).resolve())
+            self.last_pdf_error = ""
             self.statusBar().showMessage(
                 ui_text("pdf_zoom_status", pages=len(self.document))
             )
             self.render_pages()
+            return True
         except Exception as ex:
-            QMessageBox.warning(
-                self,
-                ui_text("pdf_unavailable_title"),
-                ui_text("pdf_unavailable_message", error=ex),
-            )
+            self.last_pdf_error = str(ex)
+            if show_error:
+                QMessageBox.warning(
+                    self,
+                    ui_text("pdf_unavailable_title"),
+                    ui_text("pdf_unavailable_message", error=ex),
+                )
+            return False
 
     def render_pages(self):
         if not self.document:
@@ -1213,6 +1223,7 @@ class MainWindow(QMainWindow):
         self._signatures = {}
         self._external_pending = set()
         self._pdf_watch_path = None
+        self._pdf_reload_attempts = 0
         self.file_watcher = QFileSystemWatcher(self)
         self.file_watcher.fileChanged.connect(self.queue_external_check)
         self.file_watcher.directoryChanged.connect(self.queue_directory_check)
@@ -1912,13 +1923,43 @@ class MainWindow(QMainWindow):
             previous = self._signatures.get(path)
             if current == previous:
                 continue
-            self._signatures[path] = current
             if current is None:
+                self._signatures[path] = current
                 self.status.showMessage(
                     ui_text("status_missing_file_template", path=path), 6000
                 )
                 continue
             self.watch_file(path)
+            if path == self._pdf_watch_path:
+                if self.pdf_window.load_pdf(path, show_error=False):
+                    self._signatures[path] = current
+                    self._pdf_reload_attempts = 0
+                    self.show_pdf()
+                    self.status.showMessage(
+                        ui_text("status_pdf_reloaded", filename=Path(path).name),
+                        5000,
+                    )
+                else:
+                    self._pdf_reload_attempts += 1
+                    if self._pdf_reload_attempts <= 5:
+                        self._external_pending.add(path)
+                        self._external_timer.start(350)
+                        self.status.showMessage(
+                            ui_text("status_pdf_reload_retry"), 2500
+                        )
+                    else:
+                        self._signatures[path] = current
+                        self._pdf_reload_attempts = 0
+                        self.status.showMessage(
+                            ui_text(
+                                "status_pdf_reload_failed",
+                                error=self.pdf_window.last_pdf_error,
+                            ),
+                            7000,
+                        )
+                continue
+
+            self._signatures[path] = current
             ed = next(
                 (item for item, source in self.editors.items() if source == path), None
             )
@@ -1945,25 +1986,6 @@ class MainWindow(QMainWindow):
                     except Exception as ex:
                         QMessageBox.warning(
                             self, ui_text("dialog_reload_error_title"), str(ex)
-                        )
-            elif path == self._pdf_watch_path:
-                answer = ask_question(
-                    self,
-                    ui_text("dialog_pdf_changed_title"),
-                    ui_text(
-                        "dialog_pdf_changed_template",
-                        filename=Path(path).name,
-                    ),
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.Yes,
-                )
-                if answer == QMessageBox.Yes:
-                    try:
-                        self.pdf_window.load_pdf(path)
-                        self.show_pdf()
-                    except Exception as ex:
-                        QMessageBox.warning(
-                            self, ui_text("dialog_pdf_reload_error_title"), str(ex)
                         )
 
     def save(self):
