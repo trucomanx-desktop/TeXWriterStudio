@@ -10,6 +10,7 @@ import re
 import shlex
 import subprocess
 import sys
+import signal
 from pathlib import Path
 
 from PyQt5.QtCore import (
@@ -57,6 +58,7 @@ from PyQt5.QtWidgets import (
     QSpinBox,
     QSplitter,
     QTabWidget,
+    QTabBar,
     QTextEdit,
     QToolBar,
     QVBoxLayout,
@@ -403,12 +405,39 @@ class LatexHighlighter(QSyntaxHighlighter):
                 self.setFormat(m.start(), m.end() - m.start(), fmt)
 
 
+class FileDropTabBar(QTabBar):
+    fileDropped = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls() and any(
+            url.isLocalFile() for url in event.mimeData().urls()
+        ):
+            event.acceptProposedAction()
+        else:
+            super().dragEnterEvent(event)
+
+    def dropEvent(self, event):
+        urls = [url for url in event.mimeData().urls() if url.isLocalFile()]
+        if not urls:
+            super().dropEvent(event)
+            return
+        for url in urls:
+            self.fileDropped.emit(url.toLocalFile())
+        event.acceptProposedAction()
+
+
 class CodeEditor(QPlainTextEdit):
     sourceChanged = pyqtSignal(int, int)
+    fileDropped = pyqtSignal(str)
 
     def __init__(self, settings):
         super().__init__()
         self.settings = settings
+        self.setAcceptDrops(True)
         self.highlighter = LatexHighlighter(
             self.document(), settings.value("theme", CONFIG["theme"])
         )
@@ -416,6 +445,23 @@ class CodeEditor(QPlainTextEdit):
         self.setTabStopDistance(QFontMetrics(self.font()).horizontalAdvance(" ") * 4)
         self.cursorPositionChanged.connect(self.report_cursor)
         self.apply_appearance()
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls() and any(
+            url.isLocalFile() for url in event.mimeData().urls()
+        ):
+            event.acceptProposedAction()
+        else:
+            super().dragEnterEvent(event)
+
+    def dropEvent(self, event):
+        urls = [url for url in event.mimeData().urls() if url.isLocalFile()]
+        if not urls:
+            super().dropEvent(event)
+            return
+        for url in urls:
+            self.fileDropped.emit(url.toLocalFile())
+        event.acceptProposedAction()
 
     def apply_appearance(self):
         family = self.settings.value("font_family", CONFIG["font_family"])
@@ -1056,6 +1102,12 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.settings = QSettings(about.__package__, "Editor")
+        saved_directory = self.settings.value("last_open_directory", str(Path.home()))
+        self.last_open_directory = (
+            str(Path(saved_directory).expanduser())
+            if Path(saved_directory).expanduser().is_dir()
+            else str(Path.home())
+        )
         self.pdf_window = PdfWindow(self.settings)
         self.process = None
         self.main_file = None
@@ -1080,6 +1132,9 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon(self.icon_path))
 
         self.source_tabs = QTabWidget()
+        self.source_tab_bar = FileDropTabBar(self.source_tabs)
+        self.source_tabs.setTabBar(self.source_tab_bar)
+        self.source_tab_bar.fileDropped.connect(self.open_file)
         self.source_tabs.setTabsClosable(True)
         self.source_tabs.currentChanged.connect(self.current_tab_changed)
         self.source_tabs.tabCloseRequested.connect(self.close_tab)
@@ -1318,6 +1373,7 @@ class MainWindow(QMainWindow):
 
     def add_editor(self, path=None, text=""):
         ed = EditorWithGutter(self.settings)
+        ed.fileDropped.connect(self.open_file)
         self.editors[ed] = str(Path(path).resolve()) if path else None
         ed.sourceChanged.connect(self.update_position)
         ed.rightClicked.connect(self.sync_source_to_pdf_at)
@@ -1445,7 +1501,7 @@ class MainWindow(QMainWindow):
         p, _ = QFileDialog.getOpenFileName(
             self,
             ui_text("dialog_open_title"),
-            "",
+            self.last_open_directory,
             ui_text("dialog_open_filter"),
         )
         if p:
@@ -1463,15 +1519,22 @@ class MainWindow(QMainWindow):
             self.source_tabs.removeTab(index)
             ed.deleteLater()
 
+    def remember_open_directory(self, path):
+        directory = str(Path(path).resolve().parent)
+        self.last_open_directory = directory
+        self.settings.setValue("last_open_directory", directory)
+
     def open_file(self, path):
         try:
             resolved = str(Path(path).resolve())
             for ed, existing in self.editors.items():
                 if existing == resolved:
+                    self.remember_open_directory(resolved)
                     self.remove_empty_untitled_tabs(exclude=ed)
                     self.source_tabs.setCurrentWidget(ed)
                     return ed
             file_text = Path(resolved).read_text(encoding="utf-8")
+            self.remember_open_directory(resolved)
             self.remove_empty_untitled_tabs()
             ed = self.add_editor(resolved, file_text)
             self._signatures[resolved] = self.file_signature(resolved)
@@ -1616,18 +1679,20 @@ class MainWindow(QMainWindow):
             p, _ = QFileDialog.getSaveFileName(
                 self,
                 ui_text("dialog_save_title"),
-                "",
+                self.last_open_directory,
                 ui_text("dialog_save_filter"),
             )
             if not p:
                 return False
             path = p if Path(p).suffix else p + ".tex"
             path = str(Path(path).resolve())
+            self.remember_open_directory(path)
             self.editors[ed] = path
             if Path(path).suffix.lower() == ".tex" and self.main_file is None:
                 self.main_file = path
         try:
             Path(path).write_text(ed.toPlainText(), encoding="utf-8")
+            self.remember_open_directory(path)
             ed.document().setModified(False)
             self._signatures[path] = self.file_signature(path)
             self.watch_file(path)
@@ -1899,6 +1964,42 @@ class MainWindow(QMainWindow):
 
 
 def main():
+    
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+       
+    '''
+    ensure_mime_type("tex", "text/x-tex", "LaTeX document")
+    icon_path = resource_path("icons", "logo.png")
+    extras = "MimeType=text/x-tex;"
+    
+    create_desktop_directory()    
+    create_desktop_menu()
+    create_desktop_file(os.path.join("~",".local","share","applications"), 
+                        program_name=about.__program_name__,
+                        extras=extras,
+                        icon_path=icon_path)
+    
+    for n in range(len(sys.argv)):
+        if sys.argv[n] == "--autostart":
+            create_desktop_directory(overwrite = True)
+            create_desktop_menu(overwrite = True)
+            create_desktop_file(os.path.join("~",".config","autostart"), 
+                                overwrite=True, 
+                                program_name=about.__program_name__,
+                                extras=extras,
+                                icon_path=icon_path)
+            return
+        if sys.argv[n] == "--applications":
+            create_desktop_directory(overwrite = True)
+            create_desktop_menu(overwrite = True)
+            create_desktop_file(os.path.join("~",".local","share","applications"), 
+                                overwrite=True, 
+                                program_name=about.__program_name__,
+                                extras=extras,
+                                icon_path=icon_path)
+            return
+    '''
+       
     app = QApplication(sys.argv)
     app.setApplicationName(about.__package__)
 
