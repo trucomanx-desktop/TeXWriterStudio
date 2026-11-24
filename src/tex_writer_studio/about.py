@@ -1,6 +1,6 @@
 # about.py
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 __package__ = "tex_writer_studio"
 __program_name__ = "tex-writer-studio"
 __author__ = "Fernando Pujaico Rivera"

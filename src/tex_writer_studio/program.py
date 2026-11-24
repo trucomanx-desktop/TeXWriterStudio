@@ -21,7 +21,7 @@ from PyQt5.QtGui import (
     QColor, QFont, QFontMetrics, QImage, QPainter, QTextCharFormat, QTextCursor, QTextDocument, QTextFormat, QSyntaxHighlighter, QIcon, QDesktopServices,
 )
 from PyQt5.QtWidgets import (
-    QApplication, CheckBox, QColorDialog, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QFontComboBox, QHBoxLayout, QLabel,
+    QApplication, QCheckBox, QColorDialog, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QFontComboBox, QHBoxLayout, QLabel,
     QMainWindow, QInputDialog, QMessageBox, QPlainTextEdit, QLineEdit, QListWidget, QListWidgetItem, QScrollArea, QSpinBox, QSplitter,
     QTabWidget, QTabBar, QTextEdit, QToolBar, QVBoxLayout, QWidget, QAction, QStatusBar, QSizePolicy, QMenu,
 )
