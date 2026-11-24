@@ -57,6 +57,8 @@ from PyQt5.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QScrollArea,
     QSpinBox,
     QSplitter,
@@ -257,6 +259,8 @@ DEFAULT_CONTENT = {
         "main_toolbar_title": "Main",
         "tab_files": "Files",
         "tab_build_output": "Build Output",
+        "build_error_item": "{file}:{line}: {message}",
+        "build_error_fallback": "{file}: {message}",
         "menu_file": "File",
         "menu_edit": "Edit",
         "action_find": "Find",
@@ -1548,9 +1552,16 @@ class MainWindow(QMainWindow):
         self.search_dialog.replaceAllRequested.connect(self.replace_all)
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
+        self.error_list = QListWidget()
+        self.error_list.itemClicked.connect(self.open_build_error)
+        build_output = QWidget()
+        build_layout = QVBoxLayout(build_output)
+        build_layout.setContentsMargins(0, 0, 0, 0)
+        build_layout.addWidget(self.log, 4)
+        build_layout.addWidget(self.error_list, 1)
         self.work_tabs = QTabWidget()
         self.work_tabs.addTab(self.source_tabs, ui_text("tab_files"))
-        self.work_tabs.addTab(self.log, ui_text("tab_build_output"))
+        self.work_tabs.addTab(build_output, ui_text("tab_build_output"))
         self.terminal = TerminalWidget()
         split = QSplitter(Qt.Vertical)
         split.addWidget(self.work_tabs)
@@ -2418,6 +2429,7 @@ class MainWindow(QMainWindow):
                 else f"for i in $(seq 1 {passes}); do {cmd} || exit $?; done"
             )
         self.log.clear()
+        self.error_list.clear()
         self.log.appendPlainText(
             ui_text(
                 "log_main_file_template",
@@ -2439,6 +2451,7 @@ class MainWindow(QMainWindow):
 
     def compile_finished(self, code, status):
         self.log.appendPlainText(ui_text("log_compile_finished_template", code=code))
+        self.collect_build_errors()
         pdf = str(Path(self.compiling_main_file).with_suffix(".pdf"))
         if code == 0 and Path(pdf).exists():
             resolved_pdf = str(Path(pdf).resolve())
@@ -2449,9 +2462,73 @@ class MainWindow(QMainWindow):
             self.show_pdf()
             self.status.showMessage(ui_text("status_compile_success"), 5000)
         else:
+            self.work_tabs.setCurrentWidget(self.work_tabs.widget(1))
             self.status.showMessage(
                 ui_text("status_compile_errors"), 7000
             )
+
+    def collect_build_errors(self):
+        """Extract clickable file/line diagnostics from common LaTeX log formats."""
+        lines = self.log.toPlainText().splitlines()
+        pending_message = None
+        pending_file = self.compiling_main_file
+        seen = set()
+        file_line_error = re.compile(r"^(.+?):(\d+):\s*(.+?)\s*$")
+        latex_line = re.compile(r"^l\.(\d+)\s*(.*)$")
+        for line in lines:
+            match = file_line_error.match(line.strip())
+            if match:
+                message = match.group(3)
+                normalized = message.lower()
+                if any(word in normalized for word in (
+                    "error", "undefined", "missing", "runaway", "emergency",
+                    "fatal", "not found", "cannot",
+                )):
+                    self.add_build_error(match.group(1), int(match.group(2)), message, seen)
+                continue
+            stripped = line.strip()
+            if stripped.startswith("!"):
+                pending_message = stripped.lstrip("! ") or "LaTeX error"
+            elif pending_message:
+                location = latex_line.match(stripped)
+                if location:
+                    self.add_build_error(
+                        pending_file, int(location.group(1)), pending_message, seen
+                    )
+                    pending_message = None
+
+    def add_build_error(self, source_path, line, message, seen):
+        if not source_path:
+            return
+        resolved = Path(source_path)
+        if not resolved.is_absolute():
+            resolved = Path(self.compiling_main_file).parent / resolved
+        resolved = resolved.resolve()
+        key = (str(resolved), line, message)
+        if key in seen:
+            return
+        seen.add(key)
+        item = QListWidgetItem(
+            ui_text(
+                "build_error_item",
+                file=resolved.name,
+                line=line,
+                message=message,
+            )
+        )
+        item.setData(Qt.UserRole, (str(resolved), line))
+        self.error_list.addItem(item)
+
+    def open_build_error(self, item):
+        location = item.data(Qt.UserRole)
+        if not location:
+            return
+        source_path, line = location
+        editor = self.open_file(source_path)
+        if editor:
+            self.source_tabs.setCurrentWidget(editor)
+            editor.go_to(line)
+            self.work_tabs.setCurrentWidget(self.source_tabs)
 
     def synctex(self, args):
         try:
