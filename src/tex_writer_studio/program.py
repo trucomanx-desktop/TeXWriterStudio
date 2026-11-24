@@ -273,6 +273,7 @@ DEFAULT_CONTENT = {
         "status_main_file": "Main file: {path}",
         "status_settings_applied": "Settings applied",
         "dialog_compile_main_file": "Open a .tex file and use 'Make Main File' before compiling.",
+        "dialog_compile_empty_untitled": "The current main tab is empty and has not been saved. Add text and save it before compiling.",
         "log_main_file": "Main file: {path}\n$ {command}\n",
         "status_compiling": "Compiling…",
         "log_compile_finished": "\nCompilation finished (exit code {code}).",
@@ -1144,6 +1145,15 @@ class MainWindow(QMainWindow):
             self.new_file,
         )
 
+        # From tempalte
+        self.action(
+            self.toolbar,
+            QIcon.fromTheme("document-new"),
+            ui_text("toolbar_from_template"),
+            ui_text("toolbar_from_template_tooltip"),
+            None,
+            self.create_from_template,
+        )
 
         # open
         self.action(
@@ -1205,15 +1215,6 @@ class MainWindow(QMainWindow):
             self.configure,
         )
 
-        # From tempalte
-        self.action(
-            self.toolbar,
-            QIcon.fromTheme("document-new"),
-            ui_text("toolbar_from_template"),
-            ui_text("toolbar_from_template_tooltip"),
-            None,
-            self.create_from_template,
-        )
 
         # Adicionar o espaçador
         self.toolbar_spacer = QWidget()
@@ -1437,6 +1438,7 @@ class MainWindow(QMainWindow):
             )
             return
 
+        self.remove_empty_untitled_tabs()
         self.add_editor(text=template_text)
 
     def open_dialog(self):
@@ -1449,14 +1451,29 @@ class MainWindow(QMainWindow):
         if p:
             self.open_file(p)
 
+    def remove_empty_untitled_tabs(self, exclude=None):
+        """Remove untouched, empty tabs that have never been saved."""
+        for index in range(self.source_tabs.count() - 1, -1, -1):
+            ed = self.source_tabs.widget(index)
+            if ed is exclude or self.editors.get(ed) is not None:
+                continue
+            if ed.toPlainText().strip() or ed.document().isModified():
+                continue
+            self.editors.pop(ed, None)
+            self.source_tabs.removeTab(index)
+            ed.deleteLater()
+
     def open_file(self, path):
         try:
             resolved = str(Path(path).resolve())
             for ed, existing in self.editors.items():
                 if existing == resolved:
+                    self.remove_empty_untitled_tabs(exclude=ed)
                     self.source_tabs.setCurrentWidget(ed)
                     return ed
-            ed = self.add_editor(resolved, Path(resolved).read_text(encoding="utf-8"))
+            file_text = Path(resolved).read_text(encoding="utf-8")
+            self.remove_empty_untitled_tabs()
+            ed = self.add_editor(resolved, file_text)
             self._signatures[resolved] = self.file_signature(resolved)
             self.status.showMessage(ui_text("status_opened_template", path=resolved))
             return ed
@@ -1663,6 +1680,18 @@ class MainWindow(QMainWindow):
 
     def compile(self):
         if not self.main_file:
+            current_editor = self.editor
+            if (
+                current_editor
+                and self.editors.get(current_editor) is None
+                and not current_editor.toPlainText().strip()
+            ):
+                QMessageBox.warning(
+                    self,
+                    ui_text("dialog_main_file_title"),
+                    ui_text("dialog_compile_empty_untitled"),
+                )
+                return
             if self.path and Path(self.path).suffix.lower() == ".tex":
                 self.set_current_as_main()
             else:
