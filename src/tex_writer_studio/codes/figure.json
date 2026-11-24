@@ -3,5 +3,5 @@
     "name": "Figure",
     "tooltip": "Insert LaTeX figure code",
     "shortcut": null,
-    "code": "\\begin{figure}[!htb]\n\\centering\n\\includegraphics[width=\\linewidth]{path/to/image}\n\\caption{Description of figure}\n\\label{fig:{{UUID}}}\n\\end{figure}\n"
+    "code": "%\\usepackage{graphicx}\\begin{figure}[!htb]\n\\centering\n\\includegraphics[width=0.8\\linewidth]{path/to/image}\n\\caption{Description of figure}\n\\label{fig:{{UUID}}}\n\\end{figure}\n"
 }

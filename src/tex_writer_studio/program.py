@@ -1203,7 +1203,7 @@ class MainWindow(QMainWindow):
         # New
         self.action(
             self.toolbar,
-            QIcon.fromTheme("document-new"),
+            QIcon(resource_path("icons", "new_file.png")),
             ui_text("toolbar_new"),
             ui_text("toolbar_new_tooltip"),
             ui_text("toolbar_new_shortcut"),
@@ -1213,7 +1213,7 @@ class MainWindow(QMainWindow):
         # From tempalte
         self.action(
             self.toolbar,
-            QIcon.fromTheme("document-new"),
+            QIcon(resource_path("icons", "new_file.png")),
             ui_text("toolbar_from_template"),
             ui_text("toolbar_from_template_tooltip"),
             None,
@@ -1223,7 +1223,7 @@ class MainWindow(QMainWindow):
         # open
         self.action(
             self.toolbar,
-            QIcon.fromTheme("document-open"),
+            QIcon(resource_path("icons", "open_file.png")),
             ui_text("toolbar_open"),
             ui_text("toolbar_open_tooltip"),
             ui_text("toolbar_open_shortcut"),
@@ -1233,7 +1233,7 @@ class MainWindow(QMainWindow):
         # Save
         self.action(
             self.toolbar,
-            QIcon.fromTheme("document-save"),
+            QIcon(resource_path("icons", "media-flash.png")),
             ui_text("toolbar_save"),
             ui_text("toolbar_save_tooltip"),
             ui_text("toolbar_save_shortcut"),
@@ -1243,7 +1243,7 @@ class MainWindow(QMainWindow):
         # make main
         self.action(
             self.toolbar,
-            QIcon.fromTheme("go-home"),
+            QIcon(resource_path("icons", "go-home.svg")),
             ui_text("toolbar_make_main"),
             ui_text("toolbar_make_main_tooltip"),
             ui_text("toolbar_make_main_shortcut"),
@@ -1253,7 +1253,7 @@ class MainWindow(QMainWindow):
         # Compile
         self.action(
             self.toolbar,
-            QIcon.fromTheme("system-run"),
+            QIcon(resource_path("icons", "system-run.svg")),
             ui_text("toolbar_compile"),
             ui_text("toolbar_compile_tooltip"),
             ui_text("toolbar_compile_shortcut"),
@@ -1263,7 +1263,7 @@ class MainWindow(QMainWindow):
         # Show PDF
         self.action(
             self.toolbar,
-            QIcon.fromTheme("text-x-preview"),
+            QIcon(resource_path("icons", "pdf1.svg")),
             ui_text("toolbar_view_pdf"),
             ui_text("toolbar_view_pdf_tooltip"),
             ui_text("toolbar_view_pdf_shortcut"),
@@ -1273,7 +1273,7 @@ class MainWindow(QMainWindow):
         # Properties
         self.action(
             self.toolbar,
-            QIcon.fromTheme("document-properties"),
+            QIcon(resource_path("icons", "document-page-setup.png")),
             ui_text("toolbar_settings"),
             ui_text("toolbar_settings_tooltip"),
             ui_text("toolbar_settings_shortcut"),
@@ -1289,7 +1289,7 @@ class MainWindow(QMainWindow):
         # Configure
         self.action(
             self.toolbar,
-            QIcon.fromTheme("document-properties"),
+            QIcon(resource_path("icons", "text-configure.png")),
             ui_text("toolbar_configure"),
             ui_text("toolbar_configure_tooltip"),
             None,
@@ -1299,7 +1299,7 @@ class MainWindow(QMainWindow):
         # About
         self.action(
             self.toolbar,
-            QIcon.fromTheme("help-about"),
+            QIcon(resource_path("icons", "status_help.png")),
             ui_text("toolbar_about"),
             ui_text("toolbar_about_tooltip"),
             None,
@@ -1309,7 +1309,7 @@ class MainWindow(QMainWindow):
         #
         self.action(
             self.toolbar,
-            QIcon.fromTheme("emblem-favorite"),
+            QIcon(resource_path("icons", "emote-love.png")),
             ui_text("toolbar_coffee"),
             ui_text("toolbar_coffee_tooltip"),
             None,
