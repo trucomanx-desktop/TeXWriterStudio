@@ -101,12 +101,6 @@ DEFAULT_CONTENT = {
     "pdf_zoom": 1.0,
     "bibliography_backend": "none",
     "ui": {
-        "toolbar_configure": "Configure",
-        "toolbar_configure_tooltip": "Open the program GUI configuration file",
-        "toolbar_about": "About",
-        "toolbar_about_tooltip": "About the program",
-        "toolbar_coffee": "Coffee",
-        "toolbar_coffee_tooltip": "Buy me a coffee (TrucomanX)",
         "about_ok": "OK",
         "window_title": about.__program_name__,
         "editor_tooltip": "LaTeX source editor. Right-click for editing and SyncTeX actions.",
@@ -149,20 +143,53 @@ DEFAULT_CONTENT = {
         "settings_color_selection_bg": "Selection",
         "settings_choose_color": "Choose…",
         "terminal_title": "Terminal",
-        "toolbar_title": "Main",
+        #
+        "toolbar_new_shortcut": "Ctrl+N",
+        "toolbar_new_tooltip": "Create a new document",
         "toolbar_new": "New",
+        #
+        "toolbar_open_shortcut": "Ctrl+O",
+        "toolbar_open_tooltip": "Open a document",
+        "toolbar_open": "Open",
+        #
+        "toolbar_save_shortcut": "Ctrl+S",
+        "toolbar_save_tooltip": "Save the current document",
+        "toolbar_save": "Save",
+        #
+        "toolbar_make_main_shortcut": "Ctrl+Shift+M",
+        "toolbar_make_main_tooltip": "Set the current tab as the main LaTeX file",
+        "toolbar_make_main": "Make Main",
+        #
+        "toolbar_compile_shortcut": "F5",
+        "toolbar_compile_tooltip": "Compile the main LaTeX file to PDF",
+        "toolbar_compile": "Compile PDF",
+        #
+        "toolbar_view_pdf_shortcut": "Ctrl+Shift+P",
+        "toolbar_view_pdf_tooltip": "Show the PDF preview",
+        "toolbar_view_pdf": "View PDF",
+        #
+        "toolbar_settings_shortcut": "Ctrl+,",
+        "toolbar_settings_tooltip": "Configure editor and compilation settings",
+        "toolbar_settings": "Settings",
+        #
         "toolbar_from_template": "From Template",
         "toolbar_from_template_tooltip": "Create a new document from a LaTeX template",
+        #
+        "toolbar_configure": "Configure",
+        "toolbar_configure_tooltip": "Open the program GUI configuration file",
+        #
+        "toolbar_about": "About",
+        "toolbar_about_tooltip": "About the program",
+        #
+        "toolbar_coffee": "Coffee",
+        "toolbar_coffee_tooltip": "Buy me a coffee (TrucomanX)",
+        #        
+        "toolbar_title": "Main",
+        #
         "dialog_template_title": "Choose a template",
         "dialog_template_prompt": "Select a template to create a new document:",
         "dialog_template_empty_title": "No templates found",
         "dialog_template_empty_message": "No .tex templates were found in the application data folder.",
-        "toolbar_open": "Open",
-        "toolbar_save": "Save",
-        "toolbar_make_main": "Make Main",
-        "toolbar_compile": "Compile PDF",
-        "toolbar_view_pdf": "View PDF",
-        "toolbar_settings": "Settings",
         "shortcut_cut": "Ctrl+X",
         "shortcut_copy": "Ctrl+C",
         "shortcut_paste": "Ctrl+V",
@@ -215,20 +242,6 @@ DEFAULT_CONTENT = {
         "action_compile": "Compile PDF",
         "action_view_pdf": "View PDF",
         "action_settings": "Settings",
-        "shortcut_new": "Ctrl+N",
-        "shortcut_open": "Ctrl+O",
-        "shortcut_save": "Ctrl+S",
-        "shortcut_make_main": "Ctrl+Shift+M",
-        "shortcut_compile": "F5",
-        "shortcut_view_pdf": "Ctrl+Shift+P",
-        "shortcut_settings": "Ctrl+,",
-        "tooltip_new": "Create a new document",
-        "tooltip_open": "Open a document",
-        "tooltip_save": "Save the current document",
-        "tooltip_make_main": "Set the current tab as the main LaTeX file",
-        "tooltip_compile": "Compile the main LaTeX file to PDF",
-        "tooltip_view_pdf": "Show the PDF preview",
-        "tooltip_settings": "Configure editor and compilation settings",
         "menu_cut": "Cut",
         "menu_copy": "Copy",
         "menu_paste": "Paste",
@@ -1041,7 +1054,7 @@ class QPushButtonColor(QPushButton):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.settings = QSettings("LaTeXStudio", "Editor")
+        self.settings = QSettings(about.__package__, "Editor")
         self.pdf_window = PdfWindow(self.settings)
         self.process = None
         self.main_file = None
@@ -1108,7 +1121,7 @@ class MainWindow(QMainWindow):
         a = QAction(qicon, text, self)
         if shortcut is not None:
             a.setShortcut(shortcut)
-            a.setToolTip(tooltip)
+            a.setToolTip(f"{tooltip} ({shortcut})")
         else:
             a.setToolTip(tooltip)
 
@@ -1120,27 +1133,79 @@ class MainWindow(QMainWindow):
     def create_actions(self):
         self.toolbar = self.addToolBar(ui_text("toolbar_title"))
         self.toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        actions = [
-            ("new", self.new_file),
-            ("open", self.open_dialog),
-            ("save", self.save),
-            ("make_main", self.set_current_as_main),
-            ("compile", self.compile),
-            ("view_pdf", self.activate_pdf),
-            ("settings", self.configure),
-        ]
-        for name, slot in actions:
-            self.action(
-                self.toolbar,
-                QIcon.fromTheme("document-properties"),
-                ui_text(f"toolbar_{name}"),
-                ui_text(
-                    f"tooltip_{name}", shortcut=ui_text(f"shortcut_{name}")
-                ),
-                ui_text(f"shortcut_{name}"),
-                slot,
-            )
+        
+        # New
+        self.action(
+            self.toolbar,
+            QIcon.fromTheme("document-new"),
+            ui_text("toolbar_new"),
+            ui_text("toolbar_new_tooltip"),
+            ui_text("toolbar_new_shortcut"),
+            self.new_file,
+        )
 
+
+        # open
+        self.action(
+            self.toolbar,
+            QIcon.fromTheme("document-open"),
+            ui_text("toolbar_open"),
+            ui_text("toolbar_open_tooltip"),
+            ui_text("toolbar_open_shortcut"),
+            self.open_dialog,
+        )
+        
+        # Save
+        self.action(
+            self.toolbar,
+            QIcon.fromTheme("document-save"),
+            ui_text("toolbar_save"),
+            ui_text("toolbar_save_tooltip"),
+            ui_text("toolbar_save_shortcut"),
+            self.save,
+        )
+        
+        # make main
+        self.action(
+            self.toolbar,
+            QIcon.fromTheme("go-home"),
+            ui_text("toolbar_make_main"),
+            ui_text("toolbar_make_main_tooltip"),
+            ui_text("toolbar_make_main_shortcut"),
+            self.set_current_as_main,
+        )
+        
+        # Compile
+        self.action(
+            self.toolbar,
+            QIcon.fromTheme("system-run"),
+            ui_text("toolbar_compile"),
+            ui_text("toolbar_compile_tooltip"),
+            ui_text("toolbar_compile_shortcut"),
+            self.compile,
+        )
+
+        # Show PDF
+        self.action(
+            self.toolbar,
+            QIcon.fromTheme("text-x-preview"),
+            ui_text("toolbar_view_pdf"),
+            ui_text("toolbar_view_pdf_tooltip"),
+            ui_text("toolbar_view_pdf_shortcut"),
+            self.activate_pdf,
+        )
+
+        # Properties
+        self.action(
+            self.toolbar,
+            QIcon.fromTheme("document-properties"),
+            ui_text("toolbar_settings"),
+            ui_text("toolbar_settings_tooltip"),
+            ui_text("toolbar_settings_shortcut"),
+            self.configure,
+        )
+
+        # From tempalte
         self.action(
             self.toolbar,
             QIcon.fromTheme("document-new"),
