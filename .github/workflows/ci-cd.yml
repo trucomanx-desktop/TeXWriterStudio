@@ -70,8 +70,8 @@ jobs:
           python -m PyInstaller --onefile --windowed \
             --name tex_writer_studio \
             --add-data "tex_writer_studio/icons:icons" \
-            --add-data "tex_writer_studio/codes;codes" \
-            --add-data "tex_writer_studio/data;data" \
+            --add-data "tex_writer_studio/codes:codes" \
+            --add-data "tex_writer_studio/data:data" \
             --collect-all PyQt5 \
             program_launcher.py
 
