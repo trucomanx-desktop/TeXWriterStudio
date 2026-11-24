@@ -2662,7 +2662,6 @@ def main():
     
     signal.signal(signal.SIGINT, signal.SIG_DFL)
        
-    '''
     ensure_mime_type("tex", "text/x-tex", "LaTeX document")
     icon_path = resource_path("icons", "logo.png")
     extras = "MimeType=text/x-tex;"
@@ -2693,7 +2692,6 @@ def main():
                                 extras=extras,
                                 icon_path=icon_path)
             return
-    '''
        
     app = QApplication(sys.argv)
     app.setApplicationName(about.__package__)

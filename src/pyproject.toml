@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tex_writer_studio"
-version = "0.1.0"
+version = "0.1.1"
 description = "A simple LaTeX editor and PDF compiler with live source-to-document navigation."
 readme = "README.md"
 authors = [{name = "Fernando Pujaico Rivera", email = "fernando.pujaico.rivera@gmail.com"}]
