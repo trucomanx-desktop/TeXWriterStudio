@@ -99,6 +99,11 @@ DEFAULT_CONTENT = {
         "settings_title": "Editor Settings",
         "settings_font": "Editor font",
         "settings_font_size": "Font size (Ctrl + mouse wheel)",
+        "settings_indentation": "Indentation",
+        "settings_indent_2_spaces": "2 spaces",
+        "settings_indent_4_spaces": "4 spaces",
+        "settings_indent_8_spaces": "8 spaces",
+        "settings_indent_tab": "Tab character",
         "settings_theme": "Syntax theme",
         "settings_command": "Compile command",
         "settings_backend": "Bibliography tool",
@@ -481,6 +486,69 @@ class CodeEditor(QPlainTextEdit):
             self.fileDropped.emit(url.toLocalFile())
         event.acceptProposedAction()
 
+    def _indent_text(self):
+        return str(self.settings.value("indent_text", "    "))
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key_Tab, Qt.Key_Backtab):
+            cursor = self.textCursor()
+            indent = self._indent_text() or "    "
+            removing = event.key() == Qt.Key_Backtab or bool(event.modifiers() & Qt.ShiftModifier)
+            if not cursor.hasSelection():
+                if removing:
+                    cursor.movePosition(QTextCursor.StartOfLine)
+                    line = cursor.block().text()
+                    amount = len(indent) if line.startswith(indent) else (1 if line.startswith("\t") else min(4, len(line) - len(line.lstrip(" "))))
+                    if amount:
+                        cursor.movePosition(QTextCursor.Right, QTextCursor.KeepAnchor, amount)
+                        cursor.removeSelectedText()
+                else:
+                    cursor.insertText(indent)
+                self.setTextCursor(cursor)
+                return
+            doc = self.document()
+            original_anchor, original_position = cursor.anchor(), cursor.position()
+            start, end = sorted((original_anchor, original_position))
+            first, last = doc.findBlock(start), doc.findBlock(end)
+            if end > start and end == last.position():
+                last = last.previous()
+            changes = []
+            block = first
+            while block.isValid() and block.position() <= last.position():
+                line = block.text()
+                if removing:
+                    amount = len(indent) if line.startswith(indent) else (1 if line.startswith("\t") else min(4, len(line) - len(line.lstrip(" "))))
+                    if amount:
+                        changes.append((block.position(), -amount, ""))
+                else:
+                    changes.append((block.position(), len(indent), indent))
+                block = block.next()
+            def shifted(position):
+                for at, delta, _ in changes:
+                    if delta > 0 and position >= at:
+                        position += delta
+                    elif delta < 0:
+                        removed = -delta
+                        if position >= at + removed:
+                            position -= removed
+                        elif position > at:
+                            position = at
+                return position
+            new_anchor, new_position = shifted(original_anchor), shifted(original_position)
+            cursor.beginEditBlock()
+            for at, delta, inserted in reversed(changes):
+                cursor.setPosition(at)
+                if delta > 0:
+                    cursor.insertText(inserted)
+                else:
+                    cursor.movePosition(QTextCursor.Right, QTextCursor.KeepAnchor, -delta)
+                    cursor.removeSelectedText()
+            cursor.endEditBlock()
+            cursor.setPosition(new_anchor)
+            cursor.setPosition(new_position, QTextCursor.KeepAnchor)
+            self.setTextCursor(cursor)
+            return
+        super().keyPressEvent(event)
     def apply_appearance(self):
         family = self.settings.value("font_family", CONFIG["font_family"])
         size = int(self.settings.value("font_size", CONFIG["font_size"]))
@@ -1229,6 +1297,16 @@ class SettingsDialog(QDialog):
             "Solarizado": "Solarized",
         }.get(settings.value("theme", CONFIG["theme"]), settings.value("theme", CONFIG["theme"]))
         self.theme.setCurrentText(saved_theme)
+        self.indentation = QComboBox()
+        for label, value in [
+            (ui_text("settings_indent_2_spaces"), "  "),
+            (ui_text("settings_indent_4_spaces"), "    "),
+            (ui_text("settings_indent_8_spaces"), "        "),
+            (ui_text("settings_indent_tab"), "\t"),
+        ]:
+            self.indentation.addItem(label, value)
+        indent_index = self.indentation.findData(settings.value("indent_text", "    "))
+        self.indentation.setCurrentIndex(max(0, indent_index))
         self.command = QTextEdit()
         self.command.setFixedHeight(70)
         self.command.setPlainText(settings.value("command", CONFIG["command"]))
@@ -1286,6 +1364,7 @@ class SettingsDialog(QDialog):
         form.addRow(ui_text("settings_font"), self.font)
         form.addRow(ui_text("settings_font_size"), self.size)
         form.addRow(ui_text("settings_theme"), self.theme)
+        form.addRow(ui_text("settings_indentation"), self.indentation)
         form.addRow(ui_text("settings_command"), self.command)
         form.addRow(ui_text("settings_backend"), self.backend)
         form.addRow(ui_text("settings_passes"), self.passes)
@@ -1355,6 +1434,7 @@ class SettingsDialog(QDialog):
         self.s.setValue("font_family", self.font.currentFont().family())
         self.s.setValue("font_size", self.size.value())
         self.s.setValue("theme", self.theme.currentText())
+        self.s.setValue("indent_text", self.indentation.currentData())
         self.s.setValue("command", self.command.toPlainText().strip())
         self.s.setValue("passes", self.passes.value())
         self.s.setValue("bibliography_backend", self.backend.currentData())
