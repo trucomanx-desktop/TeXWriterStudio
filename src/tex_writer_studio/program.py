@@ -1646,6 +1646,11 @@ class MainWindow(QMainWindow):
         saved_toolbar_state = self.settings.value("toolbar_state")
         if saved_toolbar_state:
             self.restoreState(saved_toolbar_state)
+        if not self.settings.value("code_toolbar_position_initialized", False, type=bool):
+            self.addToolBar(Qt.RightToolBarArea, self.code_toolbar)
+            self.code_toolbar.setOrientation(Qt.Vertical)
+            self.settings.setValue("toolbar_state", self.saveState())
+            self.settings.setValue("code_toolbar_position_initialized", True)
         self._sync_timer = QTimer(self)
         self._sync_timer.setSingleShot(True)
         self._sync_timer.timeout.connect(self.sync_source_to_pdf)
