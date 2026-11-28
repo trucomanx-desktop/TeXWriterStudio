@@ -165,6 +165,9 @@ DEFAULT_CONTENT = {
         "toolbar_save_shortcut": "Ctrl+S",
         "toolbar_save_tooltip": "Save the current document",
         "toolbar_save": "Save",
+        "toolbar_save_as": "Save As",
+        "toolbar_save_as_tooltip": "Save the current document with another name",
+        "toolbar_save_as_shortcut": "Ctrl+Shift+S",
         #
         "toolbar_make_main_shortcut": "Ctrl+Shift+M",
         "toolbar_make_main_tooltip": "Set the current tab as the main LaTeX file",
@@ -1585,6 +1588,7 @@ class MainWindow(QMainWindow):
         self.main_file = None
         self.compiling_main_file = None
         self.editors = {}
+        self.untitled_names = {}
         self._signatures = {}
         self._external_pending = set()
         self._pdf_watch_path = None
@@ -1726,6 +1730,15 @@ class MainWindow(QMainWindow):
             self.save,
         )
         
+        self.action(
+            self.toolbar,
+            QIcon(resource_path("icons", "media-flash.png")),
+            ui_text("toolbar_save_as"),
+            ui_text("toolbar_save_as_tooltip"),
+            ui_text("toolbar_save_as_shortcut"),
+            self.save_as,
+        )
+
         # make main
         self.action(
             self.toolbar,
@@ -1962,10 +1975,29 @@ class MainWindow(QMainWindow):
         if ed:
             getattr(ed, operation)()
 
+    def next_untitled_name(self):
+        numbers = []
+        pattern = re.compile(r"Untitled(\d+)\.tex$", re.IGNORECASE)
+        for editor, path in self.editors.items():
+            name = Path(path).name if path else self.untitled_names.get(editor, "")
+            match = pattern.fullmatch(name)
+            if match:
+                numbers.append(int(match.group(1)))
+        for candidate in Path(self.last_open_directory).glob("Untitled*.tex"):
+            match = pattern.fullmatch(candidate.name)
+            if match:
+                numbers.append(int(match.group(1)))
+        number = max(numbers, default=0) + 1
+        while (Path(self.last_open_directory) / f"Untitled{number}.tex").exists():
+            number += 1
+        return f"Untitled{number}.tex"
+
     def add_editor(self, path=None, text=""):
         ed = EditorWithGutter(self.settings)
         ed.fileDropped.connect(self.open_file)
         self.editors[ed] = str(Path(path).resolve()) if path else None
+        if not path:
+            self.untitled_names[ed] = self.next_untitled_name()
         ed.sourceChanged.connect(self.update_position)
         ed.rightClicked.connect(self.sync_source_to_pdf_at)
         ed.setContextMenuPolicy(Qt.PreventContextMenu)
@@ -1974,7 +2006,7 @@ class MainWindow(QMainWindow):
         ed.document().setModified(False)
         if path:
             self.watch_file(self.editors[ed])
-        label = Path(path).name if path else ui_text("untitled_file")
+        label = Path(path).name if path else self.untitled_names[ed]
         index = self.source_tabs.addTab(ed, label)
         self.source_tabs.setCurrentIndex(index)
         self.update_tab_label(ed)
@@ -1995,7 +2027,7 @@ class MainWindow(QMainWindow):
         if ed not in self.editors:
             return
         path = self.editors[ed]
-        name = Path(path).name if path else ui_text("untitled_file")
+        name = Path(path).name if path else self.untitled_names.get(ed, ui_text("untitled_file"))
         prefix = ui_text("tab_main_marker") if path and path == self.main_file else ""
         suffix = ui_text("tab_modified_marker") if ed.document().isModified() else ""
         idx = self.source_tabs.indexOf(ed)
@@ -2006,7 +2038,7 @@ class MainWindow(QMainWindow):
 
     def refresh_title(self):
         path = self.path
-        title = Path(path).name if path else ui_text("untitled_file")
+        title = Path(path).name if path else self.untitled_names.get(self.editor, ui_text("untitled_file"))
         modified = ui_text("tab_modified_marker") if self.editor and self.editor.document().isModified() else ""
         main = Path(self.main_file).name if self.main_file else ui_text("main_file_missing")
         self.setWindowTitle(
@@ -2152,7 +2184,7 @@ class MainWindow(QMainWindow):
                 filename=(
                     Path(self.editors[ed]).name
                     if self.editors[ed]
-                    else ui_text("status_untitled")
+                    else self.untitled_names.get(ed, ui_text("status_untitled"))
                 ),
             ),
             QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
@@ -2223,6 +2255,7 @@ class MainWindow(QMainWindow):
             if ed.toPlainText().strip() or ed.document().isModified():
                 continue
             self.editors.pop(ed, None)
+            self.untitled_names.pop(ed, None)
             self.source_tabs.removeTab(index)
             ed.deleteLater()
 
@@ -2388,16 +2421,21 @@ class MainWindow(QMainWindow):
                             self, ui_text("dialog_reload_error_title"), str(ex)
                         )
 
-    def save(self):
+    def save(self, force_dialog=False):
         ed = self.editor
         if not ed:
             return False
-        path = self.editors[ed]
-        if not path:
+        old_path = self.editors[ed]
+        path = old_path
+        if force_dialog or not path:
+            default_path = path or os.path.join(
+                self.last_open_directory,
+                self.untitled_names.get(ed, ui_text("untitled_file")),
+            )
             p, _ = QFileDialog.getSaveFileName(
                 self,
                 ui_text("dialog_save_title"),
-                self.last_open_directory,
+                default_path,
                 ui_text("dialog_save_filter"),
             )
             if not p:
@@ -2405,16 +2443,28 @@ class MainWindow(QMainWindow):
             path = p if Path(p).suffix else p + ".tex"
             path = str(Path(path).resolve())
             self.remember_open_directory(path)
-            self.editors[ed] = path
-            if Path(path).suffix.lower() == ".tex" and self.main_file is None:
-                self.main_file = path
+        main_file_changed = False
         try:
             Path(path).write_text(ed.toPlainText(), encoding="utf-8")
+            self.editors[ed] = path
+            self.untitled_names.pop(ed, None)
+            if old_path == self.main_file:
+                main_file_changed = self.main_file != path
+                self.main_file = path
+            elif Path(path).suffix.lower() == ".tex" and self.main_file is None:
+                self.main_file = path
+                main_file_changed = True
             self.remember_open_directory(path)
             ed.document().setModified(False)
             self._signatures[path] = self.file_signature(path)
             self.watch_file(path)
-            self.update_tab_label(ed)
+            if main_file_changed:
+                self.watch_main_pdf()
+                for open_editor in self.editors:
+                    self.update_tab_label(open_editor)
+                self.refresh_title()
+            else:
+                self.update_tab_label(ed)
             self.status.showMessage(
                 ui_text("status_saved_template", path=path), 3000
             )
@@ -2422,6 +2472,9 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, ui_text("dialog_save_error_title"), str(e))
             return False
+
+    def save_as(self):
+        return self.save(force_dialog=True)
 
     def set_current_as_main(self):
         path = self.path
@@ -2738,6 +2791,7 @@ class MainWindow(QMainWindow):
         if not self.maybe_save(ed):
             return
         path = self.editors.pop(ed, None)
+        self.untitled_names.pop(ed, None)
         if path:
             self.unwatch_source(path)
         if path == self.main_file:
