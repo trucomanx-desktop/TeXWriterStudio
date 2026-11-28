@@ -7,6 +7,7 @@ import json
 import glob
 import os
 import re
+import shutil
 import shlex
 import subprocess
 import sys
@@ -40,9 +41,36 @@ from tex_writer_studio.desktop import (
 from tex_writer_studio.mimetype import ensure_mime_type
 
 # ---------- Path to config file ----------
-CONFIG_PATH = os.path.join(
-    os.path.expanduser("~"), ".config", about.__package__, "config.json"
+CONFIG_DIRECTORY = os.path.join(
+    os.path.expanduser("~"), ".config", about.__package__
 )
+CONFIG_PATH = os.path.join(CONFIG_DIRECTORY, "config.json")
+CODES_DIRECTORY = os.path.join(CONFIG_DIRECTORY, "codes")
+TEMPLATES_DIRECTORY = os.path.join(CONFIG_DIRECTORY, "templates")
+
+def initialize_user_resources():
+    """Seed per-user code snippets and templates from packaged resources when empty."""
+    os.makedirs(CONFIG_DIRECTORY, exist_ok=True)
+    packaged_codes = resource_path("codes")
+    packaged_templates = resource_path("data")
+
+    if os.path.isdir(packaged_codes):
+        os.makedirs(CODES_DIRECTORY, exist_ok=True)
+        with os.scandir(CODES_DIRECTORY) as entries:
+            codes_empty = next(entries, None) is None
+        if codes_empty:
+            shutil.copytree(packaged_codes, CODES_DIRECTORY, dirs_exist_ok=True)
+
+    if os.path.isdir(packaged_templates):
+        os.makedirs(TEMPLATES_DIRECTORY, exist_ok=True)
+        with os.scandir(TEMPLATES_DIRECTORY) as entries:
+            templates_empty = next(entries, None) is None
+        if templates_empty:
+            for template in Path(packaged_templates).glob("*.tex"):
+                if template.is_file():
+                    shutil.copy2(template, TEMPLATES_DIRECTORY)
+
+initialize_user_resources()
 
 DEFAULT_CONTENT = {
     "window_width": 1024,
@@ -174,7 +202,7 @@ DEFAULT_CONTENT = {
         "dialog_template_title": "Choose a template",
         "dialog_template_prompt": "Select a template to create a new document:",
         "dialog_template_empty_title": "No templates found",
-        "dialog_template_empty_message": "No .tex templates were found in the application data folder.",
+        "dialog_template_empty_message": "No .tex templates were found in your templates folder.",
         "shortcut_cut": "Ctrl+X",
         "shortcut_copy": "Ctrl+C",
         "shortcut_paste": "Ctrl+V",
@@ -1826,9 +1854,9 @@ class MainWindow(QMainWindow):
         """Build code-insertion actions from JSON files in the codes folder."""
         self.code_toolbar = self.addToolBar(ui_text("toolbar_code_title"))
         self.code_toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        codes_directory = resource_path("codes")
+        codes_directory = CODES_DIRECTORY
 
-        for json_path in sorted(glob.glob(resource_path("codes", "*.json"))):
+        for json_path in sorted(glob.glob(os.path.join(codes_directory, "*.json"))):
             try:
                 with open(json_path, "r", encoding="utf-8") as code_file:
                     action_data = json.load(code_file)
@@ -2109,7 +2137,7 @@ class MainWindow(QMainWindow):
     def create_from_template(self):
         """Create an untitled editor tab populated from an installed template."""
         template_paths = sorted(
-            glob.glob(resource_path("data", "*.tex")),
+            glob.glob(os.path.join(TEMPLATES_DIRECTORY, "*.tex")),
             key=lambda path: Path(path).name.casefold(),
         )
         if not template_paths:
