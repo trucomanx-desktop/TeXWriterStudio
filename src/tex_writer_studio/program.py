@@ -217,6 +217,7 @@ DEFAULT_CONTENT = {
         "action_copy": "Copy",
         "action_paste": "Paste",
         "window_title_template": "{document}{modified} — Main: {main} — TeX Writer Studio",
+        "title_unsaved_marker": " (unsaved)",
         "dialog_unsaved_template": "Save changes to {filename}?",
         "dialog_open_title": "Open LaTeX or bibliography file",
         "dialog_open_filter": "TeX and bibliography (*.tex *.bib);;LaTeX (*.tex);;Bibliography (*.bib);;All files (*)",
@@ -344,7 +345,7 @@ DEFAULT_CONTENT = {
         "status_untitled": "Untitled",
         "status_current_file_template": "File: {path} | Main: {main}",
         "log_main_file_template": "Main file: {path}\n$ {command}\n",
-        "tab_main_marker": "★ ",
+        "tab_main_marker": "➤ ", # https://www.vertex42.com/ExcelTips/unicode-symbols.html
         "tab_modified_marker": " *",
     },
 }
@@ -2033,17 +2034,22 @@ class MainWindow(QMainWindow):
         path = self.editors[ed]
         name = Path(path).name if path else self.untitled_names.get(ed, ui_text("untitled_file"))
         prefix = ui_text("tab_main_marker") if path and path == self.main_file else ""
+        is_unsaved = not path or ed.document().isModified()
         suffix = ui_text("tab_modified_marker") if ed.document().isModified() else ""
         idx = self.source_tabs.indexOf(ed)
         if idx >= 0:
             self.source_tabs.setTabText(idx, prefix + name + suffix)
+            self.source_tabs.tabBar().setTabTextColor(
+                idx, QColor("#ff5555") if is_unsaved else QColor()
+            )
         if ed is self.editor:
             self.refresh_title()
 
     def refresh_title(self):
         path = self.path
         title = Path(path).name if path else self.untitled_names.get(self.editor, ui_text("untitled_file"))
-        modified = ui_text("tab_modified_marker") if self.editor and self.editor.document().isModified() else ""
+        is_unsaved = bool(self.editor) and (not self.path or self.editor.document().isModified())
+        modified = ui_text("title_unsaved_marker") if is_unsaved else ""
         main = Path(self.main_file).name if self.main_file else ui_text("main_file_missing")
         self.setWindowTitle(
             ui_text(

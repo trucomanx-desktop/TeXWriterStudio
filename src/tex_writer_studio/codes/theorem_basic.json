@@ -1,0 +1,7 @@
+{
+    "icon":"theorem_basic.svg",
+    "name":"Preamble\ntheorem basic",
+    "tooltip":"Insert a basic theorem preamble code",
+    "shortcut": null,
+    "code": "\\usepackage{amsthm}\n\\usepackage[most]{tcolorbox}\n% Styles of theorems\n\\newtheoremstyle{mystyle}\n    {6pt}       % Space above\n    {6pt}       % Space below\n    {\\itshape}  % Font of body\n    {}          % Retreat\n    {\\bfseries} % Font of title\n    {:}         % Punctuation after title\n    { }         % Space after title\n    {}          % Title specification\n%\n\\theoremstyle{mystyle}\n\\newtheorem{theorem}{Theorem}[section]\n%% \\begin{theorem}[Title here] Write some text here.\\end{theorem}\n"
+}

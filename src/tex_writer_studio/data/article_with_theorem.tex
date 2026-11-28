@@ -1,0 +1,56 @@
+\documentclass{article}
+
+\usepackage[a4paper, margin=2.5cm]{geometry}
+
+\usepackage{graphicx}
+\usepackage{amsmath, amssymb}
+
+\usepackage{amsthm}
+\usepackage[most]{tcolorbox}
+% Estilo dos teoremas
+\newtheoremstyle{mystyle}
+    {6pt}       % Espaço acima
+    {6pt}       % Espaço abaixo
+    {\itshape}  % Fonte do corpo
+    {}          % Recuo
+    {\bfseries} % Fonte do título
+    {:}         % Pontuação após título
+    { }         % Espaço após título
+    {}          % Especificação do título
+%
+\theoremstyle{mystyle}
+\newtheorem{theorem}{Theorem}[section]
+%% \begin{theorem}[Title here] Write some text here.\end{theorem}
+
+\title{Title of article}
+\author{Name of Author}
+\date{}
+
+
+
+\begin{document}
+
+
+\maketitle
+
+
+
+\section{Variables}
+
+
+\begin{theorem}[%
+Solving $\boldsymbol{\Phi}^{T}\boldsymbol{\Phi} \equiv \mathbf{K}$
+]
+Write some text here.
+Write some text here.
+Write some text here.
+Write some text here.
+Write some text here.
+Write some text here.
+\end{theorem}
+
+
+%\bibliographystyle{plain}
+%\bibliography{references}
+
+\end{document}

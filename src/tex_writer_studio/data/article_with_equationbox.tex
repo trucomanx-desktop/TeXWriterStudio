@@ -1,0 +1,55 @@
+\documentclass{article}
+
+\usepackage[a4paper, margin=2.5cm]{geometry}
+
+\usepackage{graphicx}
+\usepackage{amsmath, amssymb}
+
+
+\usepackage[most]{tcolorbox}
+\newtcolorbox{equationbox}{
+    colback=gray!10,      % Fundo cinza claro
+    colframe=gray!40,     % Borda cinza
+    boxrule=0.5pt,        % Espessura da borda
+    arc=2mm,              % Cantos arredondados
+    left=3mm,
+    right=3mm,
+    top=2mm,
+    bottom=2mm
+}
+%% \begin{equationbox}\begin{equation} y=x^2 \end{equation}\end{equationbox}
+
+
+\title{Title of article}
+\author{Name of Author}
+\date{}
+
+
+
+\begin{document}
+
+
+\maketitle
+
+
+
+\section{Title of section}
+
+
+Write some text here
+
+\begin{equationbox}
+\begin{align}
+\boldsymbol{\Phi}^{T}\boldsymbol{\Phi}
+&\equiv
+\mathbf{K}
+\end{align}
+\end{equationbox}
+
+
+
+
+%\bibliographystyle{plain}
+%\bibliography{references}
+
+\end{document}
