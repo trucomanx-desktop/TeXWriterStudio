@@ -254,6 +254,8 @@ DEFAULT_CONTENT = {
         "tab_files": "Files",
         "tab_build_output": "Build Output",
         "build_error_item": "{file}:{line}: {message}",
+        "build_copy_current_error": "Copy current error",
+        "build_copy_all_errors": "Copy all errors",
         "build_error_fallback": "{file}: {message}",
         "menu_file": "File",
         "menu_edit": "Edit",
@@ -1623,7 +1625,9 @@ class MainWindow(QMainWindow):
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
         self.error_list = QListWidget()
-        self.error_list.itemClicked.connect(self.open_build_error)
+        self.error_list.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.error_list.customContextMenuRequested.connect(self.show_build_error_menu)
+        self.error_list.itemDoubleClicked.connect(self.open_build_error)
         build_output = QWidget()
         build_layout = QVBoxLayout(build_output)
         build_layout.setContentsMargins(0, 0, 0, 0)
@@ -2665,7 +2669,33 @@ class MainWindow(QMainWindow):
         item.setData(Qt.UserRole, (str(resolved), line))
         self.error_list.addItem(item)
 
-    def open_build_error(self, item):
+    def show_build_error_menu(self, position):
+        clicked_item = self.error_list.itemAt(position)
+        if clicked_item is not None:
+            self.error_list.setCurrentItem(clicked_item)
+        menu = QMenu(self.error_list)
+        copy_current = menu.addAction(ui_text("build_copy_current_error"))
+        copy_all = menu.addAction(ui_text("build_copy_all_errors"))
+        copy_current.setEnabled(clicked_item is not None)
+        copy_all.setEnabled(self.error_list.count() > 0)
+        copy_current.triggered.connect(self.copy_selected_build_error)
+        copy_all.triggered.connect(self.copy_all_build_errors)
+        menu.exec_(self.error_list.mapToGlobal(position))
+
+    def copy_selected_build_error(self):
+        item = self.error_list.currentItem()
+        if item is not None:
+            QApplication.clipboard().setText(item.text())
+
+    def copy_all_build_errors(self):
+        lines = [
+            self.error_list.item(index).text()
+            for index in range(self.error_list.count())
+        ]
+        if lines:
+            QApplication.clipboard().setText("\n".join(lines))
+
+    def open_build_error(self, item, column=None):
         location = item.data(Qt.UserRole)
         if not location:
             return
