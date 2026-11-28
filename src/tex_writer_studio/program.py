@@ -182,6 +182,10 @@ DEFAULT_CONTENT = {
         "toolbar_settings_tooltip": "Configure editor and compilation settings",
         "toolbar_settings": "Settings",
         "toolbar_code_title": "Code",
+        "toolbar_open_codes_folder": "Codes folder",
+        "toolbar_open_codes_folder_tooltip": "Open the user codes folder",
+        "toolbar_open_templates_folder": "Templates folder",
+        "toolbar_open_templates_folder_tooltip": "Open the user templates folder",
         "dialog_code_json_error_title": "Could not load code action",
         "dialog_code_json_error_template": "Could not load {filename}: {error}",
         #
@@ -1763,6 +1767,23 @@ class MainWindow(QMainWindow):
         self.toolbar_spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.toolbar.addWidget(self.toolbar_spacer)
 
+        self.action(
+            self.toolbar,
+            QIcon.fromTheme("folder-open"),
+            ui_text("toolbar_open_codes_folder"),
+            ui_text("toolbar_open_codes_folder_tooltip"),
+            None,
+            lambda: self.open_user_folder(CODES_DIRECTORY),
+        )
+        self.action(
+            self.toolbar,
+            QIcon.fromTheme("folder-open"),
+            ui_text("toolbar_open_templates_folder"),
+            ui_text("toolbar_open_templates_folder_tooltip"),
+            None,
+            lambda: self.open_user_folder(TEMPLATES_DIRECTORY),
+        )
+
         # Configure
         self.action(
             self.toolbar,
@@ -1900,6 +1921,11 @@ class MainWindow(QMainWindow):
                 shortcut,
                 lambda checked=False, snippet=code: self.insert_code_snippet(snippet),
             )
+
+
+
+    def open_user_folder(self, folder):
+        QDesktopServices.openUrl(QUrl.fromLocalFile(folder))
 
     def insert_code_snippet(self, snippet):
         editor = self.editor
